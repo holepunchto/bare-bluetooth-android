@@ -1,0 +1,44 @@
+{
+  "name": "@holepunchto/bare-bluetooth-android",
+  "version": "0.0.0",
+  "description": "Android Bluetooth bindings for Bare",
+  "addon": true,
+  "scripts": {
+    "format": "prettier --write .",
+    "lint": "prettier --check .",
+    "test": "brittle-bare --coverage test.js"
+  },
+  "exports": {
+    "./package": "./package.json",
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "binding.cc",
+    "binding.js",
+    "CMakeLists.txt",
+    "lib",
+    "prebuilds"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/holepunchto/bare-bluetooth-android.git"
+  },
+  "author": "Holepunch",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/holepunchto/bare-bluetooth-android/issues"
+  },
+  "homepage": "https://github.com/holepunchto/bare-bluetooth-android#readme",
+  "dependencies": {
+    "bare-events": "^2.8.2"
+  },
+  "devDependencies": {
+    "bare-os": "^3.8.0",
+    "brittle": "^3.19.1",
+    "cmake-bare": "^1.6.5",
+    "cmake-fetch": "^1.4.0",
+    "prettier": "^3.8.1",
+    "prettier-config-holepunch": "^2.0.0"
+  }
+}
