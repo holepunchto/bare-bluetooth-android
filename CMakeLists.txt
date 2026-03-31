@@ -8,10 +8,6 @@ project(bare_bluetooth_android C CXX)
 
 use_java()
 
-if(ANDROID AND NOT TARGET JNI::NativeHelper)
-  add_library(JNI::NativeHelper INTERFACE IMPORTED)
-  target_link_libraries(JNI::NativeHelper INTERFACE nativehelper)
-endif()
 
 fetch_package("github:holepunchto/libjstl")
 fetch_package("github:holepunchto/libjnitl")
