@@ -38,6 +38,7 @@
     "brittle": "^3.19.1",
     "cmake-bare": "^1.6.5",
     "cmake-fetch": "^1.4.0",
+    "cmake-java": "^0.1.2",
     "prettier": "^3.8.1",
     "prettier-config-holepunch": "^2.0.0"
   }

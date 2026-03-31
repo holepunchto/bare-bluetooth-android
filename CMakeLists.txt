@@ -2,15 +2,19 @@ cmake_minimum_required(VERSION 4.0)
 
 find_package(cmake-bare REQUIRED PATHS node_modules/cmake-bare)
 find_package(cmake-fetch REQUIRED PATHS node_modules/cmake-fetch)
+find_package(cmake-java REQUIRED PATHS node_modules/cmake-java)
 
 project(bare_bluetooth_android C CXX)
 
+use_java()
+
+if(ANDROID AND NOT TARGET JNI::NativeHelper)
+  add_library(JNI::NativeHelper INTERFACE IMPORTED)
+  target_link_libraries(JNI::NativeHelper INTERFACE nativehelper)
+endif()
+
 fetch_package("github:holepunchto/libjstl")
-fetch_package("github:holepunchto/libjnitl#classloader-fallback")
-
-find_package(Java)
-
-include(UseJava)
+fetch_package("github:holepunchto/libjnitl")
 
 add_bare_module(bare_bluetooth_android)
 
@@ -33,6 +37,7 @@ set_target_properties(
   PROPERTIES
   C_STANDARD 11
   CXX_STANDARD 20
+  CXX_SCAN_FOR_MODULES OFF
   POSITION_INDEPENDENT_CODE ON
 )
 
