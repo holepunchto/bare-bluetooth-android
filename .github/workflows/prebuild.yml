@@ -19,15 +19,14 @@ jobs:
             platform: android
             arch: arm
     runs-on: ${{ matrix.os }}
-    name: Build / ${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.tags }}
+    name: Build / ${{ matrix.platform }}-${{ matrix.arch }}
     steps:
       - uses: holepunchto/actions/bare-base@v1
       - uses: holepunchto/actions/compile-prebuilds@v1
         with:
           platform: ${{ matrix.platform }}
           arch: ${{ matrix.arch }}
-          flags: ${{ matrix.flags }}
-          tags: ${{ matrix.tags}}
+          flags: -D ANDROID_PLATFORM=android-34 -D ANDROID_STL=c++_shared
           upload: true
   merge:
     runs-on: ubuntu-latest
