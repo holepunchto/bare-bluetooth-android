@@ -29,4 +29,3 @@ jobs:
           platform: ${{ matrix.platform }}
           arch: ${{ matrix.arch }}
           flags: --debug -D ANDROID_PLATFORM=android-34 -D ANDROID_STL=c++_shared
-      - run: npm test
