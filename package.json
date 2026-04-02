@@ -1,5 +1,5 @@
 {
-  "name": "@holepunchto/bare-bluetooth-android",
+  "name": "bare-bluetooth-android",
   "version": "0.0.0",
   "description": "Android Bluetooth bindings for Bare",
   "addon": true,
