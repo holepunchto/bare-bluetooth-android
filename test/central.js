@@ -11,10 +11,7 @@ test('central emits stateChange on init', { skip: isCI }, async (t) => {
   })
 
   t.ok(typeof state === 'string', 'state is a string')
-  t.ok(
-    ['on', 'off', 'turningOn', 'turningOff'].includes(state),
-    'state is a valid value: ' + state
-  )
+  t.ok(['on', 'off', 'turningOn', 'turningOff'].includes(state), 'state is a valid value: ' + state)
 })
 
 test('central tracks state property', { skip: isCI }, async (t) => {
