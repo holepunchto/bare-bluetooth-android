@@ -25,7 +25,6 @@ target_link_libraries(
   PUBLIC
     jstl
     jnitl
-    android
 )
 
 set_target_properties(
