@@ -5,7 +5,6 @@
 #include <js.h>
 #include <utf.h>
 
-#include <android/native_activity.h>
 #include <stdlib.h>
 #include <uv.h>
 
