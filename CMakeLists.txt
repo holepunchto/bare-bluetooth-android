@@ -10,7 +10,7 @@ use_java()
 
 
 fetch_package("github:holepunchto/libjstl")
-fetch_package("github:holepunchto/libjnitl")
+fetch_package("github:holepunchto/libjnitl#swap-release")
 
 add_bare_module(bare_bluetooth_android)
 
