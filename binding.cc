@@ -45,16 +45,8 @@ bare_bluetooth_android_get_device_address(JNIEnv *env, java_object_t<"android/bl
 static inline java_array_t<unsigned char>
 bare_bluetooth_android_make_byte_array(JNIEnv *env, const void *data, size_t length) {
   auto arr = java_array_t<unsigned char>(env, static_cast<int>(length));
-  env->SetByteArrayRegion(arr, 0, static_cast<jsize>(length), reinterpret_cast<const jbyte *>(data));
+  arr.copy_from(std::span<const unsigned char>(static_cast<const unsigned char *>(data), length));
   return arr;
-}
-
-static inline std::vector<unsigned char>
-bare_bluetooth_android_copy_byte_array(JNIEnv *env, java_array_t<unsigned char> arr) {
-  auto len = arr.size();
-  std::vector<unsigned char> result(len);
-  env->GetByteArrayRegion(arr, 0, static_cast<jsize>(len), reinterpret_cast<jbyte *>(result.data()));
-  return result;
 }
 
 static inline bool
@@ -2579,7 +2571,7 @@ bare_bluetooth_android_on_characteristic_read(java_env_t env, java_object_t<"to/
   event->uuid = uuid_str;
 
   if (status == 0 && static_cast<jobject>(value) != nullptr) {
-    event->data = bare_bluetooth_android_copy_byte_array(env, value);
+    event->data = value.slice();
   }
 
   if (status != 0) {
@@ -2628,7 +2620,7 @@ bare_bluetooth_android_on_characteristic_changed(java_env_t env, java_object_t<"
   event->error = {};
 
   if (static_cast<jobject>(value) != nullptr) {
-    event->data = bare_bluetooth_android_copy_byte_array(env, value);
+    event->data = value.slice();
   }
 
   js_call_threadsafe_function(peripheral->tsfn_notify, event, js_threadsafe_function_nonblocking);
@@ -3842,7 +3834,7 @@ bare_bluetooth_android_on_write_request(java_env_t env, java_object_t<"to/holepu
   event->response_needed = response_needed;
 
   if (static_cast<jobject>(value) != nullptr) {
-    event->data = bare_bluetooth_android_copy_byte_array(env, value);
+    event->data = value.slice();
   }
 
   js_call_threadsafe_function(server->tsfn_write_request, event, js_threadsafe_function_nonblocking);
