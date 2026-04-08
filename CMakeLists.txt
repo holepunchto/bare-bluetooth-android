@@ -8,9 +8,8 @@ project(bare_bluetooth_android C CXX)
 
 use_java()
 
-
 fetch_package("github:holepunchto/libjstl")
-fetch_package("github:holepunchto/libjnitl#swap-release")
+fetch_package("github:holepunchto/libjnitl")
 
 add_bare_module(bare_bluetooth_android)
 

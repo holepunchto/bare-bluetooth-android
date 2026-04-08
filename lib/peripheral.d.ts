@@ -30,8 +30,8 @@ export default class Peripheral extends EventEmitter<PeripheralEventMap> {
   readonly id: string
   readonly name: string | null
 
-  discoverServices(serviceUUIDs?: string[]): void
-  discoverCharacteristics(service: string, characteristicUUIDs?: string[]): void
+  discoverServices(): void
+  discoverCharacteristics(service: string): void
   read(characteristic: string): void
   write(characteristic: string, data: Uint8Array, withResponse?: boolean): void
   subscribe(characteristic: string): void
