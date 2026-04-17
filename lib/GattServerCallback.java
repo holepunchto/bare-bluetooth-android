@@ -43,6 +43,12 @@ public final class GattServerCallback extends android.bluetooth.BluetoothGattSer
     nativeOnDescriptorWriteRequest(nativePointer, device, requestId, descriptor, preparedWrite, responseNeeded, offset, value);
   }
 
+  @Override
+  public void
+  onNotificationSent(BluetoothDevice device, int status) {
+    nativeOnNotificationSent(nativePointer, device, status);
+  }
+
   private static native void
   nativeOnConnectionStateChange(long nativePointer, BluetoothDevice device, int status, int newState);
 
@@ -57,4 +63,7 @@ public final class GattServerCallback extends android.bluetooth.BluetoothGattSer
 
   private static native void
   nativeOnDescriptorWriteRequest(long nativePointer, BluetoothDevice device, int requestId, BluetoothGattDescriptor descriptor, boolean preparedWrite, boolean responseNeeded, int offset, byte[] value);
+
+  private static native void
+  nativeOnNotificationSent(long nativePointer, BluetoothDevice device, int status);
 }
