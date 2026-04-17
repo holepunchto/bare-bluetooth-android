@@ -16,10 +16,7 @@ test('server emits stateChange on init', { skip: isCI }, async (t) => {
   })
 
   t.ok(typeof state === 'string', 'state is a string')
-  t.ok(
-    ['on', 'off', 'turningOn', 'turningOff'].includes(state),
-    'state is a valid value: ' + state
-  )
+  t.ok(['on', 'off', 'turningOn', 'turningOff'].includes(state), 'state is a valid value: ' + state)
 })
 
 test('server tracks state property', { skip: isCI }, async (t) => {
@@ -55,7 +52,7 @@ test('server exports ATT result constants', (t) => {
   t.is(Server.ATT_READ_NOT_PERMITTED, 0x02)
   t.is(Server.ATT_WRITE_NOT_PERMITTED, 0x03)
   t.is(Server.ATT_INSUFFICIENT_RESOURCES, 0x11)
-  t.is(Server.ATT_UNLIKELY_ERROR, 0x0E)
+  t.is(Server.ATT_UNLIKELY_ERROR, 0x0e)
 })
 
 test('server add service with static value', { skip: isCI }, async (t) => {
