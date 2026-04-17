@@ -4,9 +4,6 @@
   "description": "Android Bluetooth bindings for Bare",
   "addon": true,
   "scripts": {
-    "build:generate": "bare-make generate --platform android --arch arm64 -D ANDROID_PLATFORM=android-34 -D ANDROID_STL=c++_shared --debug",
-    "build": "bare-make build --verbose",
-    "build:install": "bare-make install",
     "format": "prettier --write . && lunte --fix",
     "lint": "prettier --check . && lunte",
     "test": "brittle-bare --coverage test.js"
