@@ -55,6 +55,7 @@ bare_module_target("." _module NAME _name)
 
 install(
   FILES
+    $<TARGET_PROPERTY:bare_bluetooth_classes,JAR_FILE>
     $<TARGET_PROPERTY:bare_bluetooth_classes,DEX_FILE>
   DESTINATION ${target}/${_name}
 )
