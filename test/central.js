@@ -58,9 +58,13 @@ test('scan discovers peripherals with expected shape', { skip: isCI }, async (t)
   t.ok(peripheral.handle, 'peripheral has handle')
   t.ok(typeof peripheral.id === 'string', 'peripheral has string id')
   t.ok(peripheral.id.length > 0, 'peripheral id is non-empty')
-  t.ok(typeof peripheral.rssi === 'number', 'peripheral has numeric rssi')
-  t.ok(peripheral.rssi < 0, 'rssi is negative')
   t.ok(peripheral.name === null || typeof peripheral.name === 'string', 'name is string or null')
+  t.ok(typeof peripheral.rssi === 'number', 'peripheral has numeric rssi')
+  t.ok(peripheral.rssi < 0, 'peripheral rssi is negative')
+  t.ok(
+    peripheral.serviceData === null || typeof peripheral.serviceData === 'object',
+    'peripheral serviceData is object or null'
+  )
 })
 
 test('scan deduplicates peripherals by id', { skip: isCI }, async (t) => {
