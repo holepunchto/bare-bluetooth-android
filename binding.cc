@@ -33,7 +33,8 @@ bare_bluetooth_android_get_context(JNIEnv *env) {
 template <java_class_name_t N>
 static inline std::string
 bare_bluetooth_android_get_uuid_string(JNIEnv *env, java_object_t<N> obj) {
-  auto uuid = obj.get_class().template get_method<java_object_t<"java/util/UUID">()>("getUuid")(obj);
+  auto rehomed = java_object_t<N>(env, obj);
+  auto uuid = rehomed.get_class().template get_method<java_object_t<"java/util/UUID">()>("getUuid")(rehomed);
   return uuid.get_class().template get_method<std::string()>("toString")(uuid);
 }
 
@@ -119,6 +120,7 @@ struct bare_bluetooth_android_service_handle_t {
 
 struct bare_bluetooth_android_socket_handle_t {
   java_global_ref_t<java_object_t<"android/bluetooth/BluetoothSocket">> handle;
+  int psm;
 };
 
 struct bare_bluetooth_android_server_socket_handle_t {
@@ -127,6 +129,14 @@ struct bare_bluetooth_android_server_socket_handle_t {
 
 struct bare_bluetooth_android_uuid_handle_t {
   java_global_ref_t<java_object_t<"java/util/UUID">> handle;
+};
+
+struct bare_bluetooth_android_scan_record_handle_t {
+  java_global_ref_t<java_object_t<"android/bluetooth/le/ScanRecord">> handle;
+};
+
+struct bare_bluetooth_android_scan_result_handle_t {
+  java_global_ref_t<java_object_t<"android/bluetooth/le/ScanResult">> handle;
 };
 
 template <typename T>
@@ -159,10 +169,7 @@ typedef struct {
 } bare_bluetooth_android_central_state_change_t;
 
 typedef struct {
-  std::string address;
-  std::string name;
-  int32_t rssi;
-  bare_bluetooth_android_device_handle_t *device;
+  bare_bluetooth_android_scan_result_handle_t *scan_result;
 } bare_bluetooth_android_central_discover_t;
 
 typedef struct {
@@ -205,6 +212,7 @@ struct bare_bluetooth_android_peripheral_t {
   std::vector<std::vector<java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGattCharacteristic">>>> service_characteristics;
 
   uv_thread_t l2cap_thread;
+  bool l2cap_thread_started;
   std::atomic<bool> l2cap_connecting;
 };
 
@@ -474,6 +482,8 @@ bare_bluetooth_android_channel__on_close(js_env_t *env, js_value_t *function, vo
 
   bool expected = false;
   if (channel->finalized.compare_exchange_strong(expected, true)) {
+    if (channel->opened) uv_thread_join(&channel->reader_thread);
+
     js_release_threadsafe_function(channel->tsfn_open, js_threadsafe_function_abort);
     js_release_threadsafe_function(channel->tsfn_close, js_threadsafe_function_abort);
     js_release_threadsafe_function(channel->tsfn_error, js_threadsafe_function_abort);
@@ -585,11 +595,10 @@ bare_bluetooth_android_l2cap_init(js_env_t *env, js_callback_info_t *info) {
   auto *channel = new bare_bluetooth_android_channel_t();
   channel->env = env;
   channel->socket = java_global_ref_t<java_object_t<"android/bluetooth/BluetoothSocket">>(std::move(socket_handle->handle));
+  channel->psm = socket_handle->psm;
   channel->opened = false;
   channel->destroyed = false;
   channel->finalized = false;
-
-  delete socket_handle;
 
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto socket = java_object_t<"android/bluetooth/BluetoothSocket">(jenv, channel->socket);
@@ -597,7 +606,6 @@ bare_bluetooth_android_l2cap_init(js_env_t *env, js_callback_info_t *info) {
   auto device = get_device(socket);
   auto get_address = device.get_class().get_method<std::string()>("getAddress");
   channel->peer_address = get_address(device);
-  channel->psm = 0;
 
   err = js_create_reference(env, argv[1], 1, &channel->ctx);
   assert(err == 0);
@@ -826,28 +834,16 @@ bare_bluetooth_android_central__on_discover(js_env_t *env, js_value_t *function,
   err = js_get_reference_value(env, central->ctx, &receiver);
   assert(err == 0);
 
-  js_value_t *argv[4];
+  js_value_t *argv[1];
 
-  js_external_t<bare_bluetooth_android_device_handle_t> ext;
-  err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_device_handle_t>>(env, event->device, ext);
+  js_external_t<bare_bluetooth_android_scan_result_handle_t> ext;
+  err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_scan_result_handle_t>>(env, event->scan_result, ext);
   assert(err == 0);
   argv[0] = static_cast<js_value_t *>(ext);
 
-  argv[1] = js_marshall_untyped_value(env, event->address);
-
-  if (!event->name.empty()) {
-    argv[2] = js_marshall_untyped_value(env, event->name);
-  } else {
-    err = js_get_null(env, &argv[2]);
-    assert(err == 0);
-  }
-
-  err = js_create_int32(env, event->rssi, &argv[3]);
-  assert(err == 0);
-
   delete event;
 
-  js_call_function(env, receiver, function, 4, argv, NULL);
+  js_call_function(env, receiver, function, 1, argv, NULL);
 
   err = js_close_handle_scope(env, scope);
   assert(err == 0);
@@ -1205,19 +1201,16 @@ bare_bluetooth_android_central_disconnect(js_env_t *env, js_callback_info_t *inf
   err = js_get_value(env, js_external_t<bare_bluetooth_android_central_t>(argv[0]), central);
   assert(err == 0);
 
-  bare_bluetooth_android_gatt_handle_t *gatt_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_gatt_handle_t>(argv[1]), gatt_handle);
+  bare_bluetooth_android_peripheral_t *peripheral;
+  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[1]), peripheral);
   assert(err == 0);
 
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
-  auto gatt = java_object_t<"android/bluetooth/BluetoothGatt">(jenv, gatt_handle->handle);
+  auto gatt = java_object_t<"android/bluetooth/BluetoothGatt">(jenv, peripheral->gatt);
 
   auto disconnect = gatt.get_class().get_method<void()>("disconnect");
   disconnect(gatt);
-
-  auto close = gatt.get_class().get_method<void()>("close");
-  close(gatt);
 
   return NULL;
 }
@@ -1288,27 +1281,237 @@ bare_bluetooth_android_create_uuid(js_env_t *env, js_callback_info_t *info) {
   return static_cast<js_value_t *>(handle);
 }
 
+static js_value_t *
+bare_bluetooth_android_scan_record_get_service_data(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  size_t argc = 1;
+  js_value_t *argv[1];
+
+  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
+  assert(err == 0);
+  assert(argc == 1);
+
+  bare_bluetooth_android_scan_record_handle_t *scan_record_handle;
+  err = js_get_value(env, js_external_t<bare_bluetooth_android_scan_record_handle_t>(argv[0]), scan_record_handle);
+  assert(err == 0);
+
+  js_value_t *result;
+  err = js_create_object(env, &result);
+  assert(err == 0);
+
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+  auto scan_record = java_object_t<"android/bluetooth/le/ScanRecord">(jenv, scan_record_handle->handle);
+
+  auto service_data_map = scan_record.get_class().get_method<java_object_t<"java/util/Map">()>("getServiceData")(scan_record);
+
+  if (static_cast<jobject>(service_data_map) == nullptr) {
+    return result;
+  }
+
+  auto map_class = java_class_t<"java/util/Map">(jenv);
+  auto entry_set_method = map_class.get_method<java_object_t<"java/util/Set">()>("entrySet");
+  auto entry_set = entry_set_method(service_data_map);
+
+  auto set_class = java_class_t<"java/util/Set">(jenv);
+  auto iterator_method = set_class.get_method<java_object_t<"java/util/Iterator">()>("iterator");
+  auto iterator = iterator_method(entry_set);
+
+  auto iterator_class = java_class_t<"java/util/Iterator">(jenv);
+  auto has_next_method = iterator_class.get_method<bool()>("hasNext");
+  auto next_method = iterator_class.get_method<java_object_t<"java/lang/Object">()>("next");
+
+  auto map_entry_class = java_class_t<"java/util/Map$Entry">(jenv);
+  auto get_key_method = map_entry_class.get_method<java_object_t<"java/lang/Object">()>("getKey");
+  auto get_value_method = map_entry_class.get_method<java_object_t<"java/lang/Object">()>("getValue");
+
+  while (has_next_method(iterator)) {
+    auto entry_obj = next_method(iterator);
+    auto entry = java_object_t<"java/util/Map$Entry">(jenv, static_cast<jobject>(entry_obj));
+
+    auto key_obj = get_key_method(entry);
+    auto value_obj = get_value_method(entry);
+
+    auto parcel_uuid = java_object_t<"android/os/ParcelUuid">(jenv, static_cast<jobject>(key_obj));
+    auto uuid_str = bare_bluetooth_android_get_uuid_string(jenv, parcel_uuid);
+
+    auto byte_array = java_array_t<unsigned char>(jenv, static_cast<jobject>(value_obj));
+    auto bytes = byte_array.slice();
+
+    js_value_t *arraybuffer;
+    void *buf;
+    err = js_create_arraybuffer(env, bytes.size(), &buf, &arraybuffer);
+    assert(err == 0);
+    if (bytes.size() > 0) memcpy(buf, bytes.data(), bytes.size());
+
+    js_value_t *u8;
+    err = js_create_typedarray(env, js_uint8array, bytes.size(), arraybuffer, 0, &u8);
+    assert(err == 0);
+
+    err = js_set_named_property(env, result, uuid_str.c_str(), u8);
+    assert(err == 0);
+  }
+
+  return result;
+}
+
+static js_value_t *
+bare_bluetooth_android_scan_result_get_device(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  size_t argc = 1;
+  js_value_t *argv[1];
+
+  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
+  assert(err == 0);
+  assert(argc == 1);
+
+  bare_bluetooth_android_scan_result_handle_t *scan_result_handle;
+  err = js_get_value(env, js_external_t<bare_bluetooth_android_scan_result_handle_t>(argv[0]), scan_result_handle);
+  assert(err == 0);
+
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+  auto scan_result = java_object_t<"android/bluetooth/le/ScanResult">(jenv, scan_result_handle->handle);
+
+  auto scan_result_class = java_class_t<"android/bluetooth/le/ScanResult">(jenv);
+  auto get_device = scan_result_class.get_method<java_object_t<"android/bluetooth/BluetoothDevice">()>("getDevice");
+  auto device = get_device(scan_result);
+
+  auto *device_handle = new bare_bluetooth_android_device_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/BluetoothDevice">>(jenv, device)};
+
+  js_external_t<bare_bluetooth_android_device_handle_t> ext;
+  err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_device_handle_t>>(env, device_handle, ext);
+  assert(err == 0);
+
+  return static_cast<js_value_t *>(ext);
+}
+
+static js_value_t *
+bare_bluetooth_android_scan_result_get_rssi(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  size_t argc = 1;
+  js_value_t *argv[1];
+
+  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
+  assert(err == 0);
+  assert(argc == 1);
+
+  bare_bluetooth_android_scan_result_handle_t *scan_result_handle;
+  err = js_get_value(env, js_external_t<bare_bluetooth_android_scan_result_handle_t>(argv[0]), scan_result_handle);
+  assert(err == 0);
+
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+  auto scan_result = java_object_t<"android/bluetooth/le/ScanResult">(jenv, scan_result_handle->handle);
+
+  auto rssi = java_class_t<"android/bluetooth/le/ScanResult">(jenv).get_method<int()>("getRssi")(scan_result);
+
+  js_value_t *result;
+  err = js_create_int32(env, rssi, &result);
+  assert(err == 0);
+
+  return result;
+}
+
+static js_value_t *
+bare_bluetooth_android_scan_result_get_scan_record(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  size_t argc = 1;
+  js_value_t *argv[1];
+
+  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
+  assert(err == 0);
+  assert(argc == 1);
+
+  bare_bluetooth_android_scan_result_handle_t *scan_result_handle;
+  err = js_get_value(env, js_external_t<bare_bluetooth_android_scan_result_handle_t>(argv[0]), scan_result_handle);
+  assert(err == 0);
+
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+  auto scan_result = java_object_t<"android/bluetooth/le/ScanResult">(jenv, scan_result_handle->handle);
+
+  auto scan_result_class = java_class_t<"android/bluetooth/le/ScanResult">(jenv);
+  auto get_scan_record = scan_result_class.get_method<java_object_t<"android/bluetooth/le/ScanRecord">()>("getScanRecord");
+  auto scan_record = get_scan_record(scan_result);
+
+  if (static_cast<jobject>(scan_record) == nullptr) {
+    js_value_t *result;
+    err = js_get_null(env, &result);
+    assert(err == 0);
+    return result;
+  }
+
+  auto *scan_record_handle = new bare_bluetooth_android_scan_record_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/le/ScanRecord">>(jenv, scan_record)};
+
+  js_external_t<bare_bluetooth_android_scan_record_handle_t> ext;
+  err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_scan_record_handle_t>>(env, scan_record_handle, ext);
+  assert(err == 0);
+
+  return static_cast<js_value_t *>(ext);
+}
+
+static js_value_t *
+bare_bluetooth_android_device_get_address(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  size_t argc = 1;
+  js_value_t *argv[1];
+
+  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
+  assert(err == 0);
+  assert(argc == 1);
+
+  bare_bluetooth_android_device_handle_t *device_handle;
+  err = js_get_value(env, js_external_t<bare_bluetooth_android_device_handle_t>(argv[0]), device_handle);
+  assert(err == 0);
+
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+  auto device = java_object_t<"android/bluetooth/BluetoothDevice">(jenv, device_handle->handle);
+
+  auto address = java_class_t<"android/bluetooth/BluetoothDevice">(jenv).get_method<std::string()>("getAddress")(device);
+
+  return js_marshall_untyped_value(env, address);
+}
+
+static js_value_t *
+bare_bluetooth_android_device_get_name(js_env_t *env, js_callback_info_t *info) {
+  int err;
+
+  size_t argc = 1;
+  js_value_t *argv[1];
+
+  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
+  assert(err == 0);
+  assert(argc == 1);
+
+  bare_bluetooth_android_device_handle_t *device_handle;
+  err = js_get_value(env, js_external_t<bare_bluetooth_android_device_handle_t>(argv[0]), device_handle);
+  assert(err == 0);
+
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+  auto device = java_object_t<"android/bluetooth/BluetoothDevice">(jenv, device_handle->handle);
+
+  auto get_name = java_class_t<"android/bluetooth/BluetoothDevice">(jenv).get_method<java_object_t<"java/lang/String">()>("getName");
+  auto name_obj = get_name(device);
+
+  if (static_cast<jobject>(name_obj) == nullptr) {
+    js_value_t *result;
+    err = js_get_null(env, &result);
+    assert(err == 0);
+    return result;
+  }
+
+  auto name = java_string_t(jenv, name_obj);
+  return js_marshall_untyped_value(env, std::string(name));
+}
+
 static void
 bare_bluetooth_android_on_scan_result(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/ScanCallback"> self, long native_ptr, int callback_type, java_object_t<"android/bluetooth/le/ScanResult"> scan_result) {
   auto *central = reinterpret_cast<bare_bluetooth_android_central_t *>(native_ptr);
 
-  auto device = scan_result.get_class().get_method<java_object_t<"android/bluetooth/BluetoothDevice">()>("getDevice")(scan_result);
-  auto address = device.get_class().get_method<std::string()>("getAddress")(device);
-  auto rssi = scan_result.get_class().get_method<int()>("getRssi")(scan_result);
-
-  auto name_obj = device.get_class().get_method<java_object_t<"java/lang/String">()>("getName")(device);
-
   auto *event = new bare_bluetooth_android_central_discover_t();
-  event->address = address;
-  event->rssi = rssi;
-  event->device = new bare_bluetooth_android_device_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/BluetoothDevice">>(env, device)};
-
-  if (static_cast<jobject>(name_obj) != nullptr) {
-    auto name = java_string_t(env, name_obj);
-    event->name = std::string(name);
-  } else {
-    event->name = {};
-  }
+  event->scan_result = new bare_bluetooth_android_scan_result_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/le/ScanResult">>(env, scan_result)};
 
   js_call_threadsafe_function(central->tsfn_discover, event, js_threadsafe_function_nonblocking);
 }
@@ -1354,6 +1557,9 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
 
       js_call_threadsafe_function(central->tsfn_disconnect, event, js_threadsafe_function_nonblocking);
     } else {
+      auto close = gatt.get_class().get_method<void()>("close");
+      close(gatt);
+
       auto *event = new bare_bluetooth_android_central_connect_fail_t();
       event->address = address;
 
@@ -1722,6 +1928,7 @@ bare_bluetooth_android_peripheral_init(js_env_t *env, js_callback_info_t *info) 
   peripheral->env = env;
   peripheral->destroyed = false;
   peripheral->l2cap_connecting = false;
+  peripheral->l2cap_thread_started = false;
 
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   peripheral->gatt = java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGatt">>(jenv, gatt_handle->handle);
@@ -2161,7 +2368,7 @@ bare_bluetooth_android_peripheral__l2cap_open_thread(void *arg) {
 
   if (!peripheral->destroyed) {
     auto *event = new bare_bluetooth_android_peripheral_channel_open_t();
-    event->channel = new bare_bluetooth_android_socket_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/BluetoothSocket">>(jenv, socket)};
+    event->channel = new bare_bluetooth_android_socket_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/BluetoothSocket">>(jenv, socket), static_cast<int>(psm)};
     event->error = {};
     event->psm = psm;
     js_call_threadsafe_function(peripheral->tsfn_channel_open, event, js_threadsafe_function_nonblocking);
@@ -2193,9 +2400,12 @@ bare_bluetooth_android_peripheral_open_l2cap_channel(js_env_t *env, js_callback_
   ctx->peripheral = peripheral;
   ctx->psm = psm;
 
+  if (peripheral->l2cap_thread_started) uv_thread_join(&peripheral->l2cap_thread);
+
   peripheral->l2cap_connecting = true;
   err = uv_thread_create(&peripheral->l2cap_thread, bare_bluetooth_android_peripheral__l2cap_open_thread, ctx);
   assert(err == 0);
+  peripheral->l2cap_thread_started = true;
 
   return NULL;
 }
@@ -2218,8 +2428,14 @@ bare_bluetooth_android_peripheral_destroy(js_env_t *env, js_callback_info_t *inf
   if (peripheral->destroyed) return NULL;
   peripheral->destroyed = true;
 
-  if (peripheral->l2cap_connecting) {
+  if (peripheral->l2cap_thread_started) {
     uv_thread_join(&peripheral->l2cap_thread);
+  }
+
+  {
+    auto jenv = bare_bluetooth_android_jvm().get_env().value();
+    auto gatt = java_object_t<"android/bluetooth/BluetoothGatt">(jenv, peripheral->gatt);
+    gatt.get_class().get_method<void()>("close")(gatt);
   }
 
   err = js_delete_reference(env, peripheral->ctx);
@@ -3427,7 +3643,7 @@ bare_bluetooth_android_server__accept_thread(void *arg) {
     }
 
     auto *event = new bare_bluetooth_android_server_channel_open_t();
-    event->channel = new bare_bluetooth_android_socket_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/BluetoothSocket">>(jenv, client_socket)};
+    event->channel = new bare_bluetooth_android_socket_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/BluetoothSocket">>(jenv, client_socket), ch->psm};
     event->error = {};
     event->psm = ch->psm;
 
@@ -3991,6 +4207,12 @@ bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
   V("centralDisconnect", bare_bluetooth_android_central_disconnect)
   V("centralDestroy", bare_bluetooth_android_central_destroy)
   V("createUUID", bare_bluetooth_android_create_uuid)
+  V("scanResultGetDevice", bare_bluetooth_android_scan_result_get_device)
+  V("scanResultGetRssi", bare_bluetooth_android_scan_result_get_rssi)
+  V("scanResultGetScanRecord", bare_bluetooth_android_scan_result_get_scan_record)
+  V("scanRecordGetServiceData", bare_bluetooth_android_scan_record_get_service_data)
+  V("deviceGetAddress", bare_bluetooth_android_device_get_address)
+  V("deviceGetName", bare_bluetooth_android_device_get_name)
 
   V("peripheralInit", bare_bluetooth_android_peripheral_init)
   V("peripheralId", bare_bluetooth_android_peripheral_id)
