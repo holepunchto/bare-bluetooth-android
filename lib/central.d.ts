@@ -3,14 +3,6 @@ import Peripheral from './peripheral'
 
 export type BluetoothState = 'off' | 'turningOn' | 'on' | 'turningOff'
 
-export interface DiscoveredPeripheral {
-  handle: ArrayBuffer
-  id: string
-  name: string | null
-  rssi: number
-  serviceData: { [uuid: string]: Uint8Array } | null
-}
-
 export interface CentralEventMap extends EventMap {
   stateChange: [state: BluetoothState]
   discover: [peripheral: DiscoveredPeripheral]
