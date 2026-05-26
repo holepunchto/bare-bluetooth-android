@@ -29,10 +29,7 @@ target_link_libraries(
 set_target_properties(
   ${bare_bluetooth_android}
   PROPERTIES
-  C_STANDARD 11
-  CXX_STANDARD 20
   CXX_SCAN_FOR_MODULES OFF
-  POSITION_INDEPENDENT_CODE ON
 )
 
 find_android_jar(android_jar)
