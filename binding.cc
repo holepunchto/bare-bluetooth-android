@@ -145,7 +145,7 @@ bare_bluetooth_android__on_release(js_env_t *env, T *data) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   jobject ref = static_cast<jobject>(data->handle);
-  if (ref) jenv->DeleteGlobalRef(ref);
+  if (ref) static_cast<JNIEnv *>(jenv)->DeleteGlobalRef(ref);
 
   auto empty = std::remove_reference_t<decltype(data->handle)>();
   data->handle.swap(empty);
@@ -1034,9 +1034,11 @@ bare_bluetooth_android_central_init(js_env_t *env, js_callback_info_t *info) {
   auto get_state = central->adapter.get_class().get_method<int()>("getState");
   int android_state = get_state(central->adapter);
 
-  auto *state_event = new bare_bluetooth_android_central_state_change_t();
-  state_event->state = android_state;
-  js_call_threadsafe_function(central->tsfn_state_change, state_event, js_threadsafe_function_nonblocking);
+  js_value_t *state;
+  err = js_create_int32(env, android_state, &state);
+  assert(err == 0);
+
+  js_call_function(env, argv[0], argv[1], 1, &state, NULL);
 
   js_external_t<bare_bluetooth_android_central_t> handle;
   err = js_create_external(env, central, handle);
@@ -3331,9 +3333,11 @@ bare_bluetooth_android_server_init(js_env_t *env, js_callback_info_t *info) {
   auto get_state = adapter.get_class().get_method<int()>("getState");
   int android_state = get_state(adapter);
 
-  auto *state_event = new bare_bluetooth_android_server_state_change_t();
-  state_event->state = android_state;
-  js_call_threadsafe_function(server->tsfn_state_change, state_event, js_threadsafe_function_nonblocking);
+  js_value_t *state;
+  err = js_create_int32(env, android_state, &state);
+  assert(err == 0);
+
+  js_call_function(env, argv[0], argv[1], 1, &state, NULL);
 
   js_external_t<bare_bluetooth_android_server_t> handle;
   err = js_create_external(env, server, handle);
