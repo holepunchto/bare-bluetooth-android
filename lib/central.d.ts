@@ -5,7 +5,7 @@ export type BluetoothState = 'off' | 'turningOn' | 'on' | 'turningOff'
 
 export interface CentralEventMap extends EventMap {
   stateChange: [state: BluetoothState]
-  discover: [peripheral: DiscoveredPeripheral]
+  discover: [peripheral: Peripheral]
   connect: [peripheral: Peripheral, error?: string]
   disconnect: [peripheral: Peripheral | null, error?: string]
   connectFail: [id: string, error: string]
@@ -19,7 +19,7 @@ export default class Central extends EventEmitter<CentralEventMap> {
 
   startScan(serviceUUIDs?: string[]): void
   stopScan(): void
-  connect(peripheral: DiscoveredPeripheral): void
+  connect(peripheral: Peripheral): void
   disconnect(peripheral: Peripheral): void
   destroy(): void
 

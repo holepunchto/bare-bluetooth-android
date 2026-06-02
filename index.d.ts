@@ -9,7 +9,7 @@ export {
   ReadRequest,
   WriteRequest
 } from './lib/server'
-export { default as Central, DiscoveredPeripheral, Advertisement } from './lib/central'
+export { default as Central } from './lib/central'
 export { default as Peripheral, PeripheralOptions } from './lib/peripheral'
 export { default as ScanResult } from './lib/scan-result'
 export { default as ScanRecord } from './lib/scan-record'
