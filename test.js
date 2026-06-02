@@ -1,5 +1,5 @@
 require('./test/central')
+require('./test/helpers')
 require('./test/l2cap')
 require('./test/peripheral')
 require('./test/server')
-require('./test/service-data')
