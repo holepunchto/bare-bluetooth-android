@@ -142,6 +142,14 @@ struct bare_bluetooth_android_scan_result_handle_t {
 template <typename T>
 static void
 bare_bluetooth_android__on_release(js_env_t *env, T *data) {
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+
+  jobject ref = static_cast<jobject>(data->handle);
+  if (ref) jenv->DeleteGlobalRef(ref);
+
+  auto empty = std::remove_reference_t<decltype(data->handle)>();
+  data->handle.swap(empty);
+
   delete data;
 }
 
