@@ -3,9 +3,13 @@ package to.holepunch.bare.bluetooth;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothProfile;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class GattCallback extends android.bluetooth.BluetoothGattCallback {
   private final long nativePointer;
+  private final Map<String, BluetoothGatt> connectedGatts = new ConcurrentHashMap<>();
 
   public GattCallback(long nativePointer) {
     this.nativePointer = nativePointer;
@@ -14,7 +18,22 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
   @Override
   public void
   onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+    if (gatt != null && gatt.getDevice() != null) {
+      String address = gatt.getDevice().getAddress();
+
+      if (status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED) {
+        connectedGatts.put(address, gatt);
+      } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+        connectedGatts.remove(address);
+      }
+    }
+
     nativeOnConnectionStateChange(nativePointer, gatt, status, newState);
+  }
+
+  public BluetoothGatt
+  takeConnectedGatt(String address) {
+    return connectedGatts.remove(address);
   }
 
   @Override
