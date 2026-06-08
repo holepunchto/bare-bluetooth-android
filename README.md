@@ -80,7 +80,7 @@ Emitted when the Bluetooth adapter state changes. The listener receives the new 
 
 #### `event: 'discover'`
 
-Emitted when a peripheral is discovered during scanning. The listener receives a `peripheral` object with `handle`, `id`, `name`, and `rssi` properties.
+Emitted when a peripheral is discovered during scanning. The listener receives a `peripheral` object with `handle`, `id`, `name`, `rssi`, and `serviceData` properties. `serviceData` is an object with UUID string keys and either `Uint8Array` values or `null` when the advertisement has no service data.
 
 #### `event: 'connect'`
 
@@ -118,7 +118,8 @@ Options include:
 opts = {
   connectHandle: null,
   id: null,
-  name: null
+  name: null,
+  serviceData: null
 }
 ```
 
@@ -129,6 +130,10 @@ The unique identifier of the peripheral.
 #### `peripheral.name`
 
 The advertised name of the peripheral, or `null` if unavailable.
+
+#### `peripheral.serviceData`
+
+The last discovered service data snapshot for the peripheral, or `null` if unavailable.
 
 #### `peripheral.discoverServices()`
 

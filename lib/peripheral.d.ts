@@ -2,11 +2,13 @@ import { EventEmitter, EventMap } from 'bare-events'
 import Service from './service'
 import Characteristic from './characteristic'
 import L2CAPChannel from './channel'
+import type { ServiceData } from './central'
 
 export interface PeripheralOptions {
   connectHandle?: ArrayBuffer
   id?: string
-  name?: string
+  name?: string | null
+  serviceData?: ServiceData | null
 }
 
 export interface PeripheralEventMap extends EventMap {
@@ -29,6 +31,7 @@ export default class Peripheral extends EventEmitter<PeripheralEventMap> {
 
   readonly id: string
   readonly name: string | null
+  readonly serviceData: ServiceData | null
 
   discoverServices(): void
   discoverCharacteristics(service: string): void
