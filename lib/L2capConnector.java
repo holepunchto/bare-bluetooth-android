@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class L2capConnector implements Runnable {
+  private static final long JOIN_TIMEOUT_MS = 1000;
+
   private final BluetoothSocket socket;
   private final long nativePointer;
   private final int psm;
@@ -20,17 +22,28 @@ public final class L2capConnector implements Runnable {
 
   public synchronized void
   start() {
-    if (thread != null) return;
+    if (thread != null || cancelled) return;
 
     thread = new Thread(this, "bare-bluetooth-l2cap-connect");
     thread.start();
   }
 
-  public void
+  public synchronized void
   cancel() {
+    if (cancelled) return;
     cancelled = true;
-    closeSocket();
-    joinThread();
+
+    closeSocket(socket);
+
+    Thread t = thread;
+
+    if (t != null && t != Thread.currentThread()) {
+      try {
+        t.join(JOIN_TIMEOUT_MS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   @Override
@@ -41,12 +54,15 @@ public final class L2capConnector implements Runnable {
 
     try {
       socket.connect();
-      success = !cancelled;
-      if (cancelled) error = "L2CAP connect cancelled";
-    } catch (IOException e) {
-      error = cancelled ? "L2CAP connect cancelled" : "L2CAP connect failed";
-    } catch (RuntimeException e) {
-      error = cancelled ? "L2CAP connect cancelled" : "L2CAP connect failed";
+
+      if (cancelled) {
+        closeSocket(socket);
+        error = "L2CAP connect cancelled";
+      } else {
+        success = true;
+      }
+    } catch (IOException | RuntimeException e) {
+      error = cancelled ? "L2CAP connect cancelled" : errorMessage("L2CAP connect failed", e);
     }
 
     if (completed.compareAndSet(false, true)) {
@@ -54,29 +70,23 @@ public final class L2capConnector implements Runnable {
     }
   }
 
-  private void
-  closeSocket() {
-    try {
-      socket.close();
-    } catch (IOException e) {
-      // Ignore close errors while cancelling.
-    } catch (RuntimeException e) {
-      // Ignore close errors while cancelling.
-    }
-  }
-
-  private void
-  joinThread() {
-    Thread t = thread;
-    if (t == null || t == Thread.currentThread()) return;
-
-    try {
-      t.join();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
-  }
-
   private static native void
   nativeOnComplete(long nativePointer, int psm, boolean success, String error);
+
+  private static void
+  closeSocket(BluetoothSocket socket) {
+    try {
+      socket.close();
+    } catch (IOException | RuntimeException e) {
+      // Ignore close errors while cancelling to avoid masking cancellation.
+    }
+  }
+
+  private static String
+  errorMessage(String prefix, Throwable error) {
+    String message = error.getMessage();
+    return message == null || message.length() == 0
+      ? prefix + ": " + error.getClass().getSimpleName()
+      : prefix + ": " + message;
+  }
 }

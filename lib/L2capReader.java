@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class L2capReader implements Runnable {
+  private static final long JOIN_TIMEOUT_MS = 1000;
+
   private final BluetoothSocket socket;
   private final long nativePointer;
   private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -20,17 +22,28 @@ public final class L2capReader implements Runnable {
 
   public synchronized void
   start() {
-    if (thread != null) return;
+    if (thread != null || stopped) return;
 
     thread = new Thread(this, "bare-bluetooth-l2cap-read");
     thread.start();
   }
 
-  public void
+  public synchronized void
   stop() {
+    if (stopped) return;
+
     stopped = true;
     closeSocket();
-    joinThread();
+
+    Thread t = thread;
+
+    if (t != null && t != Thread.currentThread()) {
+      try {
+        t.join(JOIN_TIMEOUT_MS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   @Override
@@ -38,6 +51,9 @@ public final class L2capReader implements Runnable {
   run() {
     try {
       InputStream input = socket.getInputStream();
+
+      if (stopped) return;
+
       nativeOnOpen(nativePointer);
 
       byte[] buffer = new byte[4096];
@@ -46,18 +62,17 @@ public final class L2capReader implements Runnable {
         int bytesRead = input.read(buffer);
 
         if (bytesRead == -1) {
-          nativeOnEnd(nativePointer);
+          if (!stopped) nativeOnEnd(nativePointer);
           break;
         }
 
         if (bytesRead > 0) {
+          if (stopped) break;
           nativeOnData(nativePointer, Arrays.copyOf(buffer, bytesRead));
         }
       }
-    } catch (IOException e) {
-      if (!stopped) nativeOnError(nativePointer, "Read error");
-    } catch (RuntimeException e) {
-      if (!stopped) nativeOnError(nativePointer, "Read error");
+    } catch (IOException | RuntimeException e) {
+      if (!stopped) nativeOnError(nativePointer, errorMessage("Read error", e));
     } finally {
       closeSocket();
       if (closed.compareAndSet(false, true)) nativeOnClose(nativePointer);
@@ -68,23 +83,17 @@ public final class L2capReader implements Runnable {
   closeSocket() {
     try {
       socket.close();
-    } catch (IOException e) {
-      // Ignore close errors during teardown.
-    } catch (RuntimeException e) {
-      // Ignore close errors during teardown.
+    } catch (IOException | RuntimeException e) {
+      // Ignore close errors during teardown to avoid duplicate close events.
     }
   }
 
-  private void
-  joinThread() {
-    Thread t = thread;
-    if (t == null || t == Thread.currentThread()) return;
-
-    try {
-      t.join();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+  private static String
+  errorMessage(String prefix, Throwable error) {
+    String message = error.getMessage();
+    return message == null || message.length() == 0
+      ? prefix + ": " + error.getClass().getSimpleName()
+      : prefix + ": " + message;
   }
 
   private static native void

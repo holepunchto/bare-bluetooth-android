@@ -8,6 +8,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class L2capAcceptor implements Runnable {
+  private static final long JOIN_TIMEOUT_MS = 1000;
+
   private final BluetoothServerSocket serverSocket;
   private final long nativePointer;
   private final int psm;
@@ -24,17 +26,38 @@ public final class L2capAcceptor implements Runnable {
 
   public synchronized void
   start() {
-    if (thread != null) return;
+    if (thread != null || stopped) return;
 
     thread = new Thread(this, "bare-bluetooth-l2cap-accept");
     thread.start();
   }
 
-  public void
+  public synchronized void
   stop() {
+    if (stopped) return;
     stopped = true;
-    closeServerSocket();
-    joinThread();
+
+    try {
+      serverSocket.close();
+    } catch (IOException | RuntimeException e) {
+      nativeOnError(nativePointer, psm, errorMessage("L2CAP accept close failed", e));
+    }
+
+    Thread t = thread;
+
+    if (t != null && t != Thread.currentThread()) {
+      try {
+        t.join(JOIN_TIMEOUT_MS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+
+    for (BluetoothSocket socket : acceptedSockets.values()) {
+      closeAcceptedSocket(socket);
+    }
+
+    acceptedSockets.clear();
   }
 
   public BluetoothSocket
@@ -51,48 +74,45 @@ public final class L2capAcceptor implements Runnable {
         if (socket == null) continue;
 
         if (stopped) {
-          try {
-            socket.close();
-          } catch (IOException e) {
-            // Ignore close errors during teardown.
-          }
+          closeAcceptedSocket(socket);
           break;
         }
 
         int id = nextSocketId.getAndIncrement();
         acceptedSockets.put(id, socket);
+
+        if (stopped) {
+          BluetoothSocket accepted = acceptedSockets.remove(id);
+          if (accepted != null) closeAcceptedSocket(accepted);
+          break;
+        }
+
         nativeOnAccepted(nativePointer, psm, id);
-      } catch (IOException e) {
-        if (!stopped) nativeOnError(nativePointer, psm, "L2CAP accept failed");
-        break;
-      } catch (RuntimeException e) {
-        if (!stopped) nativeOnError(nativePointer, psm, "L2CAP accept failed");
+      } catch (IOException | RuntimeException e) {
+        if (!stopped) {
+          nativeOnError(nativePointer, psm, errorMessage("L2CAP accept failed", e));
+        }
+
         break;
       }
     }
   }
 
   private void
-  closeServerSocket() {
+  closeAcceptedSocket(BluetoothSocket socket) {
     try {
-      serverSocket.close();
-    } catch (IOException e) {
-      // Ignore close errors during teardown.
-    } catch (RuntimeException e) {
-      // Ignore close errors during teardown.
+      socket.close();
+    } catch (IOException | RuntimeException e) {
+      nativeOnError(nativePointer, psm, errorMessage("Accepted L2CAP socket close failed", e));
     }
   }
 
-  private void
-  joinThread() {
-    Thread t = thread;
-    if (t == null || t == Thread.currentThread()) return;
-
-    try {
-      t.join();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+  private static String
+  errorMessage(String prefix, Throwable error) {
+    String message = error.getMessage();
+    return message == null || message.length() == 0
+      ? prefix + ": " + error.getClass().getSimpleName()
+      : prefix + ": " + message;
   }
 
   private static native void
