@@ -11,7 +11,7 @@ test('device exposes address and name', (t) => {
 })
 
 test('device name is null when absent', (t) => {
-  const device = new Device({ address: 'AA:BB:CC:DD:EE:FF', name: null })
+  const device = new Device({ address: 'AA:BB:CC:DD:EE:FF' })
 
   t.is(device.name, null)
 })
@@ -24,7 +24,7 @@ test('scan record exposes service data', (t) => {
 })
 
 test('scan record service data is null when absent', (t) => {
-  const record = new ScanRecord({ serviceData: null })
+  const record = new ScanRecord()
 
   t.is(record.serviceData, null)
 })
@@ -39,9 +39,9 @@ test('scan result exposes device, rssi, and scan record', (t) => {
   t.is(result.scanRecord, record)
 })
 
-test('scan result scan record is null when absent', (t) => {
-  const device = new Device({ address: 'AA:BB:CC:DD:EE:FF', name: null })
-  const result = new ScanResult({ device, rssi: -50, scanRecord: null })
+test('scan record is null when scan result is absent', (t) => {
+  const device = new Device({ address: 'AA:BB:CC:DD:EE:FF' })
+  const result = new ScanResult({ device, rssi: -50 })
 
   t.is(result.scanRecord, null)
 })

@@ -615,20 +615,19 @@ bare_bluetooth_android_on_l2cap_reader_close(java_env_t env, java_object_t<"to/h
   js_call_threadsafe_function(channel->tsfn_close);
 }
 
-static js_value_t *
-bare_bluetooth_android_l2cap_init(js_env_t *env, js_callback_info_t *info) {
+static js_external_t<bare_bluetooth_android_channel_t>
+bare_bluetooth_android_l2cap_init(
+  js_env_t *env,
+  bare_bluetooth_android_socket_handle_t *socket_handle,
+  js_object_t ctx,
+  js_function_t<void, js_receiver_t, js_handle_t> on_data,
+  js_function_t<void, js_receiver_t> on_drain,
+  js_function_t<void, js_receiver_t> on_end,
+  js_function_t<void, js_receiver_t, js_handle_t> on_error,
+  js_function_t<void, js_receiver_t> on_close,
+  js_function_t<void, js_receiver_t> on_open
+) {
   int err;
-
-  size_t argc = 8;
-  js_value_t *argv[8];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 8);
-
-  bare_bluetooth_android_socket_handle_t *socket_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_socket_handle_t>(argv[0]), socket_handle);
-  assert(err == 0);
 
   auto *channel = new bare_bluetooth_android_channel_t();
   channel->env = env;
@@ -648,51 +647,38 @@ bare_bluetooth_android_l2cap_init(js_env_t *env, js_callback_info_t *info) {
   channel->peer_address = get_address(device);
   channel->psm = 0;
 
-  err = js_create_reference(env, argv[1], 1, &channel->ctx);
+  err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &channel->ctx);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_data, bare_bluetooth_android_channel_t, bare_bluetooth_android_channel_data_t>(env, js_function_t<void, js_receiver_t, js_handle_t>(argv[2]), 0, 1, channel, channel->tsfn_data);
+  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_data, bare_bluetooth_android_channel_t, bare_bluetooth_android_channel_data_t>(env, on_data, 0, 1, channel, channel->tsfn_data);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_drain, bare_bluetooth_android_channel_t, void>(env, js_function_t<void, js_receiver_t>(argv[3]), 0, 1, channel, channel->tsfn_drain);
+  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_drain, bare_bluetooth_android_channel_t, void>(env, on_drain, 0, 1, channel, channel->tsfn_drain);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_end, bare_bluetooth_android_channel_t, void>(env, js_function_t<void, js_receiver_t>(argv[4]), 0, 1, channel, channel->tsfn_end);
+  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_end, bare_bluetooth_android_channel_t, void>(env, on_end, 0, 1, channel, channel->tsfn_end);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_error, bare_bluetooth_android_channel_t, bare_bluetooth_android_channel_error_t>(env, js_function_t<void, js_receiver_t, js_handle_t>(argv[5]), 0, 1, channel, channel->tsfn_error);
+  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_error, bare_bluetooth_android_channel_t, bare_bluetooth_android_channel_error_t>(env, on_error, 0, 1, channel, channel->tsfn_error);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_close, bare_bluetooth_android_channel_t, void>(env, js_function_t<void, js_receiver_t>(argv[6]), 0, 1, channel, channel->tsfn_close);
+  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_close, bare_bluetooth_android_channel_t, void>(env, on_close, 0, 1, channel, channel->tsfn_close);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_open, bare_bluetooth_android_channel_t, void>(env, js_function_t<void, js_receiver_t>(argv[7]), 0, 1, channel, channel->tsfn_open);
+  err = js_create_threadsafe_function<bare_bluetooth_android_channel__on_open, bare_bluetooth_android_channel_t, void>(env, on_open, 0, 1, channel, channel->tsfn_open);
   assert(err == 0);
 
   js_external_t<bare_bluetooth_android_channel_t> handle;
   err = js_create_external(env, channel, handle);
   assert(err == 0);
 
-  return static_cast<js_value_t *>(handle);
+  return handle;
 }
 
-static js_value_t *
-bare_bluetooth_android_l2cap_open(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_channel_t *channel;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_channel_t>(argv[0]), channel);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_l2cap_open(js_env_t *env, bare_bluetooth_android_channel_t *channel) {
   bool expected = false;
-  if (!channel->opened.compare_exchange_strong(expected, true)) return NULL;
+  if (!channel->opened.compare_exchange_strong(expected, true)) return;
 
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto socket = java_object_t<"android/bluetooth/BluetoothSocket">(jenv, channel->socket);
@@ -702,43 +688,18 @@ bare_bluetooth_android_l2cap_open(js_env_t *env, js_callback_info_t *info) {
 
   auto start = reader.get_class().get_method<void()>("start");
   start(reader);
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_l2cap_write(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_channel_t *channel;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_channel_t>(argv[0]), channel);
-  assert(err == 0);
-
-  if (channel->destroyed || !channel->opened) {
-    js_value_t *result;
-    err = js_create_int32(env, 0, &result);
-    assert(err == 0);
-    return result;
-  }
-
-  uint8_t *data;
-  size_t length;
-  err = js_get_typedarray_info(env, js_typedarray_t<uint8_t>(argv[1]), data, length);
-  assert(err == 0);
+static int32_t
+bare_bluetooth_android_l2cap_write(js_env_t *env, bare_bluetooth_android_channel_t *channel, js_typedarray_span_t<uint8_t> data) {
+  if (channel->destroyed || !channel->opened) return 0;
 
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto socket = java_object_t<"android/bluetooth/BluetoothSocket">(jenv, channel->socket);
   auto get_output = socket.get_class().get_method<java_object_t<"java/io/OutputStream">()>("getOutputStream");
   auto output = get_output(socket);
 
-  auto byte_array = bare_bluetooth_android_make_byte_array(jenv, data, length);
+  auto byte_array = bare_bluetooth_android_make_byte_array(jenv, data.data(), data.size());
 
   auto write_method = output.get_class().get_method<void(java_array_t<unsigned char>)>("write");
   write_method(output, byte_array);
@@ -753,34 +714,17 @@ bare_bluetooth_android_l2cap_write(js_env_t *env, js_callback_info_t *info) {
     js_call_threadsafe_function(channel->tsfn_error, event);
   }
 
-  js_value_t *result;
-  err = js_create_int32(env, write_ok ? static_cast<int32_t>(length) : 0, &result);
-  assert(err == 0);
-
-  return result;
+  return write_ok ? static_cast<int32_t>(data.size()) : 0;
 }
 
-static js_value_t *
-bare_bluetooth_android_l2cap_end(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_channel_t *channel;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_channel_t>(argv[0]), channel);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_l2cap_end(js_env_t *env, bare_bluetooth_android_channel_t *channel) {
   bool expected = false;
-  if (!channel->destroyed.compare_exchange_strong(expected, true)) return NULL;
+  if (!channel->destroyed.compare_exchange_strong(expected, true)) return;
 
   if (!channel->opened) {
     js_call_threadsafe_function(channel->tsfn_close);
-    return NULL;
+    return;
   }
 
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
@@ -795,55 +739,18 @@ bare_bluetooth_android_l2cap_end(js_env_t *env, js_callback_info_t *info) {
   auto close = socket.get_class().get_method<void()>("close");
   close(socket);
   static_cast<JNIEnv *>(jenv)->ExceptionClear();
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_l2cap_psm(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_channel_t *channel;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_channel_t>(argv[0]), channel);
-  assert(err == 0);
-
-  js_value_t *result;
-  err = js_create_uint32(env, static_cast<uint32_t>(channel->psm), &result);
-  assert(err == 0);
-
-  return result;
+static uint32_t
+bare_bluetooth_android_l2cap_psm(js_env_t *env, bare_bluetooth_android_channel_t *channel) {
+  return static_cast<uint32_t>(channel->psm);
 }
 
-static js_value_t *
-bare_bluetooth_android_l2cap_peer(js_env_t *env, js_callback_info_t *info) {
-  int err;
+static std::optional<std::string>
+bare_bluetooth_android_l2cap_peer(js_env_t *env, bare_bluetooth_android_channel_t *channel) {
+  if (channel->peer_address.empty()) return std::nullopt;
 
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_channel_t *channel;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_channel_t>(argv[0]), channel);
-  assert(err == 0);
-
-  if (channel->peer_address.empty()) {
-    js_value_t *result;
-    err = js_get_null(env, &result);
-    assert(err == 0);
-    return result;
-  }
-
-  return js_marshall_untyped_value(env, channel->peer_address);
+  return channel->peer_address;
 }
 
 static void
@@ -1093,39 +1000,41 @@ bare_bluetooth_android_central__on_scan_fail(js_env_t *env, js_function_t<void, 
   assert(err == 0);
 }
 
-static js_value_t *
-bare_bluetooth_android_central_init(js_env_t *env, js_callback_info_t *info) {
+static js_external_t<bare_bluetooth_android_central_t>
+bare_bluetooth_android_central_init(
+  js_env_t *env,
+  js_object_t ctx,
+  js_function_t<void, js_receiver_t, js_handle_t> on_state_change,
+  js_function_t<void, js_receiver_t, std::string, js_handle_t, int32_t, js_handle_t> on_discover,
+  js_function_t<void, js_receiver_t, js_handle_t, std::string> on_connect,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t> on_disconnect,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t> on_connect_fail,
+  js_function_t<void, js_receiver_t, js_handle_t> on_scan_fail
+) {
   int err;
-
-  size_t argc = 7;
-  js_value_t *argv[7];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 7);
 
   auto *central = new bare_bluetooth_android_central_t();
   central->env = env;
 
-  err = js_create_reference(env, argv[0], 1, &central->ctx);
+  err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &central->ctx);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_state_change, bare_bluetooth_android_central_t, bare_bluetooth_android_central_state_change_t>(env, js_function_t<void, js_receiver_t, js_handle_t>(argv[1]), 0, 1, central, central->tsfn_state_change);
+  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_state_change, bare_bluetooth_android_central_t, bare_bluetooth_android_central_state_change_t>(env, on_state_change, 0, 1, central, central->tsfn_state_change);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_discover, bare_bluetooth_android_central_t, bare_bluetooth_android_central_discover_t>(env, js_function_t<void, js_receiver_t, std::string, js_handle_t, int32_t, js_handle_t>(argv[2]), 0, 1, central, central->tsfn_discover);
+  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_discover, bare_bluetooth_android_central_t, bare_bluetooth_android_central_discover_t>(env, on_discover, 0, 1, central, central->tsfn_discover);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_connect, bare_bluetooth_android_central_t, bare_bluetooth_android_central_connect_t>(env, js_function_t<void, js_receiver_t, js_handle_t, std::string>(argv[3]), 0, 1, central, central->tsfn_connect);
+  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_connect, bare_bluetooth_android_central_t, bare_bluetooth_android_central_connect_t>(env, on_connect, 0, 1, central, central->tsfn_connect);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_disconnect, bare_bluetooth_android_central_t, bare_bluetooth_android_central_disconnect_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t>(argv[4]), 0, 1, central, central->tsfn_disconnect);
+  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_disconnect, bare_bluetooth_android_central_t, bare_bluetooth_android_central_disconnect_t>(env, on_disconnect, 0, 1, central, central->tsfn_disconnect);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_connect_fail, bare_bluetooth_android_central_t, bare_bluetooth_android_central_connect_fail_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t>(argv[5]), 0, 1, central, central->tsfn_connect_fail);
+  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_connect_fail, bare_bluetooth_android_central_t, bare_bluetooth_android_central_connect_fail_t>(env, on_connect_fail, 0, 1, central, central->tsfn_connect_fail);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_scan_fail, bare_bluetooth_android_central_t, bare_bluetooth_android_central_scan_fail_t>(env, js_function_t<void, js_receiver_t, js_handle_t>(argv[6]), 0, 1, central, central->tsfn_scan_fail);
+  err = js_create_threadsafe_function<bare_bluetooth_android_central__on_scan_fail, bare_bluetooth_android_central_t, bare_bluetooth_android_central_scan_fail_t>(env, on_scan_fail, 0, 1, central, central->tsfn_scan_fail);
   assert(err == 0);
 
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
@@ -1157,65 +1066,35 @@ bare_bluetooth_android_central_init(js_env_t *env, js_callback_info_t *info) {
   err = js_create_external(env, central, handle);
   assert(err == 0);
 
-  return static_cast<js_value_t *>(handle);
+  return handle;
 }
 
-static js_value_t *
-bare_bluetooth_android_central_start_scan(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 3;
-  js_value_t *argv[3];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc >= 1 && argc <= 3);
-
-  bare_bluetooth_android_central_t *central;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_central_t>(argv[0]), central);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_central_start_scan(js_env_t *env, bare_bluetooth_android_central_t *central, std::optional<std::vector<bare_bluetooth_android_uuid_handle_t *>> uuids, std::optional<int32_t> scan_mode) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   java_object_t<"java/util/List"> filter_list;
 
-  if (argc >= 2) {
-    js_value_type_t type;
-    err = js_typeof(env, argv[1], &type);
-    assert(err == 0);
+  if (uuids) {
+    auto arraylist_class = java_class_t<"java/util/ArrayList">(jenv);
+    auto list = arraylist_class();
+    auto list_add = list.get_class().get_method<bool(java_object_t<"java/lang/Object">)>("add");
 
-    if (type != js_null && type != js_undefined) {
-      uint32_t uuid_count;
-      err = js_get_array_length(env, argv[1], &uuid_count);
-      assert(err == 0);
+    auto filter_builder_class = java_class_t<"android/bluetooth/le/ScanFilter$Builder">(jenv);
+    auto parcel_uuid_class = java_class_t<"android/os/ParcelUuid">(jenv);
 
-      auto arraylist_class = java_class_t<"java/util/ArrayList">(jenv);
-      auto list = arraylist_class();
-      auto list_add = list.get_class().get_method<bool(java_object_t<"java/lang/Object">)>("add");
+    for (auto *uuid_handle : *uuids) {
+      auto builder = filter_builder_class();
+      auto set_service_uuid = builder.get_class().get_method<java_object_t<"android/bluetooth/le/ScanFilter$Builder">(java_object_t<"android/os/ParcelUuid">)>("setServiceUuid");
+      auto parcel_uuid = parcel_uuid_class(java_object_t<"java/util/UUID">(jenv, uuid_handle->handle));
+      set_service_uuid(builder, parcel_uuid);
 
-      auto filter_builder_class = java_class_t<"android/bluetooth/le/ScanFilter$Builder">(jenv);
-      auto parcel_uuid_class = java_class_t<"android/os/ParcelUuid">(jenv);
-
-      for (uint32_t i = 0; i < uuid_count; i++) {
-        js_value_t *uuid_val;
-        err = js_get_element(env, argv[1], i, &uuid_val);
-        assert(err == 0);
-
-        bare_bluetooth_android_uuid_handle_t *uuid_handle;
-        err = js_get_value(env, js_external_t<bare_bluetooth_android_uuid_handle_t>(uuid_val), uuid_handle);
-        assert(err == 0);
-        auto builder = filter_builder_class();
-        auto set_service_uuid = builder.get_class().get_method<java_object_t<"android/bluetooth/le/ScanFilter$Builder">(java_object_t<"android/os/ParcelUuid">)>("setServiceUuid");
-        auto parcel_uuid = parcel_uuid_class(java_object_t<"java/util/UUID">(jenv, uuid_handle->handle));
-        set_service_uuid(builder, parcel_uuid);
-
-        auto build_filter = builder.get_class().get_method<java_object_t<"android/bluetooth/le/ScanFilter">()>("build");
-        auto filter = build_filter(builder);
-        list_add(list, java_object_t<"java/lang/Object">(jenv, filter));
-      }
-
-      filter_list = java_object_t<"java/util/List">(jenv, list);
+      auto build_filter = builder.get_class().get_method<java_object_t<"android/bluetooth/le/ScanFilter">()>("build");
+      auto filter = build_filter(builder);
+      list_add(list, java_object_t<"java/lang/Object">(jenv, filter));
     }
+
+    filter_list = java_object_t<"java/util/List">(jenv, list);
   }
 
   auto callback_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/ScanCallback">();
@@ -1223,82 +1102,29 @@ bare_bluetooth_android_central_start_scan(js_env_t *env, js_callback_info_t *inf
 
   central->scan_callback = java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/ScanCallback">>(jenv, callback_local);
 
-  int32_t scan_mode = 2;
-  if (argc >= 3) {
-    js_value_type_t mode_type;
-    err = js_typeof(env, argv[2], &mode_type);
-    assert(err == 0);
-
-    if (mode_type != js_null && mode_type != js_undefined) {
-      err = js_get_value(env, js_number_t(argv[2]), scan_mode);
-      assert(err == 0);
-    }
-  }
-
   auto settings_builder_class = java_class_t<"android/bluetooth/le/ScanSettings$Builder">(jenv);
   auto settings_builder = settings_builder_class();
 
   auto set_scan_mode = settings_builder.get_class().get_method<java_object_t<"android/bluetooth/le/ScanSettings$Builder">(int)>("setScanMode");
-  set_scan_mode(settings_builder, scan_mode);
+  set_scan_mode(settings_builder, scan_mode.value_or(2));
 
   auto build_settings = settings_builder.get_class().get_method<java_object_t<"android/bluetooth/le/ScanSettings">()>("build");
   auto settings = build_settings(settings_builder);
 
   auto start_scan = central->scanner.get_class().get_method<void(java_object_t<"java/util/List">, java_object_t<"android/bluetooth/le/ScanSettings">, java_object_t<"android/bluetooth/le/ScanCallback">)>("startScan");
   start_scan(central->scanner, filter_list, java_object_t<"android/bluetooth/le/ScanSettings">(jenv, settings), java_object_t<"android/bluetooth/le/ScanCallback">(jenv, central->scan_callback));
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_central_stop_scan(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_central_t *central;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_central_t>(argv[0]), central);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_central_stop_scan(js_env_t *env, bare_bluetooth_android_central_t *central) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   auto stop_scan = central->scanner.get_class().get_method<void(java_object_t<"android/bluetooth/le/ScanCallback">)>("stopScan");
   stop_scan(central->scanner, java_object_t<"android/bluetooth/le/ScanCallback">(jenv, central->scan_callback));
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_central_connect(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_central_t *central;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_central_t>(argv[0]), central);
-  assert(err == 0);
-
-  size_t len;
-  err = js_get_value_string_utf8(env, argv[1], NULL, 0, &len);
-  assert(err == 0);
-
-  char *address_str = static_cast<char *>(malloc(len + 1));
-  err = js_get_value_string_utf8(env, argv[1], reinterpret_cast<utf8_t *>(address_str), len + 1, NULL);
-  assert(err == 0);
-
-  std::string address(address_str);
-  free(address_str);
-
+static void
+bare_bluetooth_android_central_connect(js_env_t *env, bare_bluetooth_android_central_t *central, std::string address) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   auto adapter = java_object_t<"android/bluetooth/BluetoothAdapter">(jenv, central->adapter);
@@ -1314,29 +1140,10 @@ bare_bluetooth_android_central_connect(js_env_t *env, js_callback_info_t *info) 
 
   auto connect_gatt = device.get_class().get_method<java_object_t<"android/bluetooth/BluetoothGatt">(java_object_t<"android/content/Context">, bool, java_object_t<"android/bluetooth/BluetoothGattCallback">, int)>("connectGatt");
   connect_gatt(device, context, false, java_object_t<"android/bluetooth/BluetoothGattCallback">(jenv, gatt_callback), 2);
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_central_disconnect(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_central_t *central;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_central_t>(argv[0]), central);
-  assert(err == 0);
-
-  bare_bluetooth_android_gatt_handle_t *gatt_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_gatt_handle_t>(argv[1]), gatt_handle);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_central_disconnect(js_env_t *env, bare_bluetooth_android_central_t *central, bare_bluetooth_android_gatt_handle_t *gatt_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   auto gatt = java_object_t<"android/bluetooth/BluetoothGatt">(jenv, gatt_handle->handle);
@@ -1346,26 +1153,11 @@ bare_bluetooth_android_central_disconnect(js_env_t *env, js_callback_info_t *inf
 
   auto close = gatt.get_class().get_method<void()>("close");
   close(gatt);
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_central_destroy(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_central_t *central;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_central_t>(argv[0]), central);
-  assert(err == 0);
-
-  err = js_delete_reference(env, central->ctx);
+static void
+bare_bluetooth_android_central_destroy(js_env_t *env, bare_bluetooth_android_central_t *central) {
+  int err = js_delete_reference(env, central->ctx);
   assert(err == 0);
 
   js_release_threadsafe_function(central->tsfn_scan_fail, js_threadsafe_function_abort);
@@ -1376,44 +1168,23 @@ bare_bluetooth_android_central_destroy(js_env_t *env, js_callback_info_t *info) 
   js_release_threadsafe_function(central->tsfn_state_change, js_threadsafe_function_abort);
 
   delete central;
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_create_uuid(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  size_t len;
-  err = js_get_value_string_utf8(env, argv[0], NULL, 0, &len);
-  assert(err == 0);
-
-  char *str = static_cast<char *>(malloc(len + 1));
-  err = js_get_value_string_utf8(env, argv[0], reinterpret_cast<utf8_t *>(str), len + 1, NULL);
-  assert(err == 0);
-
+static js_external_t<bare_bluetooth_android_uuid_handle_t>
+bare_bluetooth_android_create_uuid(js_env_t *env, std::string str) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   auto uuid_class = java_class_t<"java/util/UUID">(jenv);
   auto from_string = uuid_class.get_static_method<java_object_t<"java/util/UUID">(std::string)>("fromString");
-  auto uuid_local = from_string(std::string(str));
-
-  free(str);
+  auto uuid_local = from_string(str);
 
   auto *uuid_handle = new bare_bluetooth_android_uuid_handle_t{java_global_ref_t<java_object_t<"java/util/UUID">>(jenv, uuid_local)};
 
   js_external_t<bare_bluetooth_android_uuid_handle_t> handle;
-  err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_uuid_handle_t>>(env, uuid_handle, handle);
+  int err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_uuid_handle_t>>(env, uuid_handle, handle);
   assert(err == 0);
 
-  return static_cast<js_value_t *>(handle);
+  return handle;
 }
 
 static void
@@ -1969,20 +1740,21 @@ bare_bluetooth_android_peripheral__on_mtu_changed(js_env_t *env, js_function_t<v
   assert(err == 0);
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_init(js_env_t *env, js_callback_info_t *info) {
+static js_external_t<bare_bluetooth_android_peripheral_t>
+bare_bluetooth_android_peripheral_init(
+  js_env_t *env,
+  bare_bluetooth_android_gatt_handle_t *gatt_handle,
+  js_object_t ctx,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t> on_services_discover,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t> on_characteristics_discover,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t> on_read,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t> on_write,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t> on_notify,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t> on_notify_state,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, uint32_t> on_channel_open,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t> on_mtu_changed
+) {
   int err;
-
-  size_t argc = 10;
-  js_value_t *argv[10];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 10);
-
-  bare_bluetooth_android_gatt_handle_t *gatt_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_gatt_handle_t>(argv[0]), gatt_handle);
-  assert(err == 0);
 
   auto *peripheral = new bare_bluetooth_android_peripheral_t();
   peripheral->env = env;
@@ -2004,143 +1776,71 @@ bare_bluetooth_android_peripheral_init(js_env_t *env, js_callback_info_t *info) 
     bare_bluetooth_android_peripherals[address] = peripheral;
   }
 
-  err = js_create_reference(env, argv[1], 1, &peripheral->ctx);
+  err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &peripheral->ctx);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_services_discover, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_services_discover_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t>(argv[2]), 0, 1, peripheral, peripheral->tsfn_services_discover);
+  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_services_discover, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_services_discover_t>(env, on_services_discover, 0, 1, peripheral, peripheral->tsfn_services_discover);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_characteristics_discover, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_characteristics_discover_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t>(argv[3]), 0, 1, peripheral, peripheral->tsfn_characteristics_discover);
+  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_characteristics_discover, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_characteristics_discover_t>(env, on_characteristics_discover, 0, 1, peripheral, peripheral->tsfn_characteristics_discover);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_read, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_read_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t>(argv[4]), 0, 1, peripheral, peripheral->tsfn_read);
+  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_read, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_read_t>(env, on_read, 0, 1, peripheral, peripheral->tsfn_read);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_write, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_write_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t>(argv[5]), 0, 1, peripheral, peripheral->tsfn_write);
+  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_write, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_write_t>(env, on_write, 0, 1, peripheral, peripheral->tsfn_write);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_notify, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_notify_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t>(argv[6]), 0, 1, peripheral, peripheral->tsfn_notify);
+  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_notify, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_notify_t>(env, on_notify, 0, 1, peripheral, peripheral->tsfn_notify);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_notify_state, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_notify_state_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t>(argv[7]), 0, 1, peripheral, peripheral->tsfn_notify_state);
+  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_notify_state, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_notify_state_t>(env, on_notify_state, 0, 1, peripheral, peripheral->tsfn_notify_state);
   assert(err == 0);
 
-  err = js_create_reference(
-    env,
-    js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, uint32_t>(argv[8]),
-    peripheral->on_channel_open
-  );
+  err = js_create_reference(env, on_channel_open, peripheral->on_channel_open);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_mtu_changed, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_mtu_changed_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t>(argv[9]), 0, 1, peripheral, peripheral->tsfn_mtu_changed);
+  err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_mtu_changed, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_mtu_changed_t>(env, on_mtu_changed, 0, 1, peripheral, peripheral->tsfn_mtu_changed);
   assert(err == 0);
 
   js_external_t<bare_bluetooth_android_peripheral_t> handle;
   err = js_create_external(env, peripheral, handle);
   assert(err == 0);
 
-  return static_cast<js_value_t *>(handle);
+  return handle;
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_id(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
+static std::string
+bare_bluetooth_android_peripheral_id(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto device = java_object_t<"android/bluetooth/BluetoothDevice">(jenv, peripheral->device);
   auto get_address = device.get_class().get_method<std::string()>("getAddress");
-  std::string address = get_address(device);
-
-  return js_marshall_untyped_value(env, address);
+  return get_address(device);
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_name(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
+static std::optional<std::string>
+bare_bluetooth_android_peripheral_name(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto device = java_object_t<"android/bluetooth/BluetoothDevice">(jenv, peripheral->device);
   auto get_name = device.get_class().get_method<java_object_t<"java/lang/String">()>("getName");
   auto name_obj = get_name(device);
 
-  if (static_cast<jobject>(name_obj) == nullptr) {
-    js_value_t *result;
-    err = js_get_null(env, &result);
-    assert(err == 0);
-    return result;
-  }
+  if (static_cast<jobject>(name_obj) == nullptr) return std::nullopt;
 
   auto name = java_string_t(jenv, name_obj);
-  return js_marshall_untyped_value(env, std::string(name));
+  return std::string(name);
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_discover_services(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
+static bool
+bare_bluetooth_android_peripheral_discover_services(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto gatt = java_object_t<"android/bluetooth/BluetoothGatt">(jenv, peripheral->gatt);
   auto discover = gatt.get_class().get_method<bool()>("discoverServices");
-  bool ok = discover(gatt);
-
-  js_value_t *result;
-  err = js_get_boolean(env, ok, &result);
-  assert(err == 0);
-  return result;
+  return discover(gatt);
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_discover_characteristics(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
-  bare_bluetooth_android_service_handle_t *service_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_service_handle_t>(argv[1]), service_handle);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_peripheral_discover_characteristics(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral, bare_bluetooth_android_service_handle_t *service_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   int service_index = -1;
@@ -2163,75 +1863,19 @@ bare_bluetooth_android_peripheral_discover_characteristics(js_env_t *env, js_cal
   }
 
   js_call_threadsafe_function(peripheral->tsfn_characteristics_discover, event);
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_read(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
-  bare_bluetooth_android_characteristic_handle_t *char_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_characteristic_handle_t>(argv[1]), char_handle);
-  assert(err == 0);
-
+static bool
+bare_bluetooth_android_peripheral_read(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral, bare_bluetooth_android_characteristic_handle_t *char_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto gatt = java_object_t<"android/bluetooth/BluetoothGatt">(jenv, peripheral->gatt);
   auto characteristic = java_object_t<"android/bluetooth/BluetoothGattCharacteristic">(jenv, char_handle->handle);
   auto read_characteristic = gatt.get_class().get_method<bool(java_object_t<"android/bluetooth/BluetoothGattCharacteristic">)>("readCharacteristic");
-  bool ok = read_characteristic(gatt, characteristic);
-
-  js_value_t *result;
-  err = js_get_boolean(env, ok, &result);
-  assert(err == 0);
-  return result;
+  return read_characteristic(gatt, characteristic);
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_write(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 4;
-  js_value_t *argv[4];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 4);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
-  bare_bluetooth_android_characteristic_handle_t *char_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_characteristic_handle_t>(argv[1]), char_handle);
-  assert(err == 0);
-
-  js_value_t *arraybuffer;
-  size_t offset, length;
-  err = js_get_typedarray_info(env, argv[2], NULL, nullptr, &length, &arraybuffer, &offset);
-  assert(err == 0);
-
-  void *buf;
-  err = js_get_arraybuffer_info(env, arraybuffer, &buf, NULL);
-  assert(err == 0);
-
-  uint8_t *data = static_cast<uint8_t *>(buf) + offset;
-
-  bool with_response;
-  err = js_get_value(env, js_boolean_t(argv[3]), with_response);
-  assert(err == 0);
-
+static bool
+bare_bluetooth_android_peripheral_write(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral, bare_bluetooth_android_characteristic_handle_t *char_handle, js_typedarray_span_t<uint8_t> data, bool with_response) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto gatt = java_object_t<"android/bluetooth/BluetoothGatt">(jenv, peripheral->gatt);
   auto characteristic = java_object_t<"android/bluetooth/BluetoothGattCharacteristic">(jenv, char_handle->handle);
@@ -2239,38 +1883,16 @@ bare_bluetooth_android_peripheral_write(js_env_t *env, js_callback_info_t *info)
   auto set_write_type = characteristic.get_class().get_method<void(int)>("setWriteType");
   set_write_type(characteristic, with_response ? 2 : 1);
 
-  auto byte_array = bare_bluetooth_android_make_byte_array(jenv, data, length);
+  auto byte_array = bare_bluetooth_android_make_byte_array(jenv, data.data(), data.size());
   auto set_value = characteristic.get_class().get_method<bool(java_array_t<unsigned char>)>("setValue");
   set_value(characteristic, byte_array);
 
   auto write_characteristic = gatt.get_class().get_method<bool(java_object_t<"android/bluetooth/BluetoothGattCharacteristic">)>("writeCharacteristic");
-  bool ok = write_characteristic(gatt, characteristic);
-
-  js_value_t *result;
-  err = js_get_boolean(env, ok, &result);
-  assert(err == 0);
-  return result;
+  return write_characteristic(gatt, characteristic);
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_subscribe(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
-  bare_bluetooth_android_characteristic_handle_t *char_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_characteristic_handle_t>(argv[1]), char_handle);
-  assert(err == 0);
-
+static bool
+bare_bluetooth_android_peripheral_subscribe(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral, bare_bluetooth_android_characteristic_handle_t *char_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto gatt = java_object_t<"android/bluetooth/BluetoothGatt">(jenv, peripheral->gatt);
   auto characteristic = java_object_t<"android/bluetooth/BluetoothGattCharacteristic">(jenv, char_handle->handle);
@@ -2298,31 +1920,11 @@ bare_bluetooth_android_peripheral_subscribe(js_env_t *env, js_callback_info_t *i
     ok = false;
   }
 
-  js_value_t *result;
-  err = js_get_boolean(env, ok, &result);
-  assert(err == 0);
-  return result;
+  return ok;
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_unsubscribe(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
-  bare_bluetooth_android_characteristic_handle_t *char_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_characteristic_handle_t>(argv[1]), char_handle);
-  assert(err == 0);
-
+static bool
+bare_bluetooth_android_peripheral_unsubscribe(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral, bare_bluetooth_android_characteristic_handle_t *char_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto gatt = java_object_t<"android/bluetooth/BluetoothGatt">(jenv, peripheral->gatt);
   auto characteristic = java_object_t<"android/bluetooth/BluetoothGattCharacteristic">(jenv, char_handle->handle);
@@ -2350,40 +1952,15 @@ bare_bluetooth_android_peripheral_unsubscribe(js_env_t *env, js_callback_info_t 
     ok = false;
   }
 
-  js_value_t *result;
-  err = js_get_boolean(env, ok, &result);
-  assert(err == 0);
-  return result;
+  return ok;
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_request_mtu(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
-  int32_t mtu;
-  err = js_get_value(env, js_number_t(argv[1]), mtu);
-  assert(err == 0);
-
+static bool
+bare_bluetooth_android_peripheral_request_mtu(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral, int32_t mtu) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto gatt = java_object_t<"android/bluetooth/BluetoothGatt">(jenv, peripheral->gatt);
   auto request_mtu = gatt.get_class().get_method<bool(int)>("requestMtu");
-  bool ok = request_mtu(gatt, mtu);
-
-  js_value_t *result;
-  err = js_get_boolean(env, ok, &result);
-  assert(err == 0);
-  return result;
+  return request_mtu(gatt, mtu);
 }
 
 struct bare_bluetooth_android_peripheral_l2cap_open_req_t {
@@ -2488,30 +2065,15 @@ bare_bluetooth_android_on_l2cap_connector_complete(java_env_t env, java_object_t
 static void
 bare_bluetooth_android_peripheral_release(bare_bluetooth_android_peripheral_t *peripheral);
 
-static js_value_t *
-bare_bluetooth_android_peripheral_open_l2cap_channel(js_env_t *env, js_callback_info_t *info) {
+static void
+bare_bluetooth_android_peripheral_open_l2cap_channel(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral, uint32_t psm) {
   int err;
 
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
-  uint32_t psm;
-  err = js_get_value(env, js_number_t(argv[1]), psm);
-  assert(err == 0);
-
-  if (peripheral->destroyed) return NULL;
+  if (peripheral->destroyed) return;
 
   if (peripheral->l2cap_connecting) {
     bare_bluetooth_android_peripheral_emit_channel_open(env, peripheral, nullptr, "L2CAP open already pending", psm);
-    return NULL;
+    return;
   }
 
   auto *req = new bare_bluetooth_android_peripheral_l2cap_open_req_t();
@@ -2544,7 +2106,7 @@ bare_bluetooth_android_peripheral_open_l2cap_channel(js_env_t *env, js_callback_
     event->psm = psm;
     event->error = req->error;
     js_call_threadsafe_function(req->tsfn_complete, event);
-    return NULL;
+    return;
   }
 
   req->channel = new bare_bluetooth_android_socket_handle_t{
@@ -2557,8 +2119,6 @@ bare_bluetooth_android_peripheral_open_l2cap_channel(js_env_t *env, js_callback_
 
   auto start = connector.get_class().get_method<void()>("start");
   start(connector);
-
-  return NULL;
 }
 
 static void
@@ -2593,178 +2153,65 @@ bare_bluetooth_android_peripheral_release(bare_bluetooth_android_peripheral_t *p
   js_release_threadsafe_function(peripheral->tsfn_services_discover, js_threadsafe_function_abort);
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_destroy(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
-  if (peripheral->destroyed) return NULL;
+static void
+bare_bluetooth_android_peripheral_destroy(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral) {
+  if (peripheral->destroyed) return;
   peripheral->destroyed = true;
 
   bare_bluetooth_android_peripheral_release(peripheral);
 
-  if (peripheral->l2cap_connecting) return NULL;
+  if (peripheral->l2cap_connecting) return;
 
   delete peripheral;
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_service_count(js_env_t *env, js_callback_info_t *info) {
-  int err;
+static uint32_t
+bare_bluetooth_android_peripheral_service_count(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral) {
+  return static_cast<uint32_t>(peripheral->services.size());
+}
 
-  size_t argc = 1;
-  js_value_t *argv[1];
+static js_external_t<bare_bluetooth_android_service_handle_t>
+bare_bluetooth_android_peripheral_service_at_index(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral, uint32_t index) {
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+  auto *service_handle = new bare_bluetooth_android_service_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGattService">>(jenv, peripheral->services[index])};
 
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
-  js_value_t *result;
-  err = js_create_uint32(env, static_cast<uint32_t>(peripheral->services.size()), &result);
+  js_external_t<bare_bluetooth_android_service_handle_t> result;
+  int err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_service_handle_t>>(env, service_handle, result);
   assert(err == 0);
 
   return result;
 }
 
-static js_value_t *
-bare_bluetooth_android_peripheral_service_at_index(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_peripheral_t *peripheral;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_peripheral_t>(argv[0]), peripheral);
-  assert(err == 0);
-
-  uint32_t index;
-  err = js_get_value(env, js_number_t(argv[1]), index);
-  assert(err == 0);
-
-  auto jenv = bare_bluetooth_android_jvm().get_env().value();
-  auto *service_handle = new bare_bluetooth_android_service_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGattService">>(jenv, peripheral->services[index])};
-
-  js_external_t<bare_bluetooth_android_service_handle_t> result;
-  err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_service_handle_t>>(env, service_handle, result);
-  assert(err == 0);
-
-  return static_cast<js_value_t *>(result);
-}
-
-static js_value_t *
-bare_bluetooth_android_service_key(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  void *handle;
-  err = js_get_value_external(env, argv[0], &handle);
-  assert(err == 0);
-
+static std::string
+bare_bluetooth_android_service_key(js_env_t *env, bare_bluetooth_android_service_handle_t *service_handle) {
   char key[32];
-  snprintf(key, sizeof(key), "%p", handle);
+  snprintf(key, sizeof(key), "%p", static_cast<void *>(service_handle));
 
-  return js_marshall_untyped_value(env, std::string(key));
+  return std::string(key);
 }
 
-static js_value_t *
-bare_bluetooth_android_service_uuid(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_service_handle_t *service_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_service_handle_t>(argv[0]), service_handle);
-  assert(err == 0);
-
+static std::string
+bare_bluetooth_android_service_uuid(js_env_t *env, bare_bluetooth_android_service_handle_t *service_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto service = java_object_t<"android/bluetooth/BluetoothGattService">(jenv, service_handle->handle);
   auto get_uuid = service.get_class().get_method<java_object_t<"java/util/UUID">()>("getUuid");
   auto uuid_obj = get_uuid(service);
   auto to_string = uuid_obj.get_class().get_method<std::string()>("toString");
-  std::string uuid_str = to_string(uuid_obj);
-
-  return js_marshall_untyped_value(env, uuid_str);
+  return to_string(uuid_obj);
 }
 
-static js_value_t *
-bare_bluetooth_android_service_characteristic_count(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_service_handle_t *service_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_service_handle_t>(argv[0]), service_handle);
-  assert(err == 0);
-
+static uint32_t
+bare_bluetooth_android_service_characteristic_count(js_env_t *env, bare_bluetooth_android_service_handle_t *service_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto service = java_object_t<"android/bluetooth/BluetoothGattService">(jenv, service_handle->handle);
   auto get_characteristics = service.get_class().get_method<java_object_t<"java/util/List">()>("getCharacteristics");
   auto list = get_characteristics(service);
   auto list_size = list.get_class().get_method<int()>("size");
-  int count = list_size(list);
-
-  js_value_t *result;
-  err = js_create_uint32(env, static_cast<uint32_t>(count), &result);
-  assert(err == 0);
-
-  return result;
+  return static_cast<uint32_t>(list_size(list));
 }
 
-static js_value_t *
-bare_bluetooth_android_service_characteristic_at_index(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_service_handle_t *service_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_service_handle_t>(argv[0]), service_handle);
-  assert(err == 0);
-
-  uint32_t index;
-  err = js_get_value(env, js_number_t(argv[1]), index);
-  assert(err == 0);
-
+static js_external_t<bare_bluetooth_android_characteristic_handle_t>
+bare_bluetooth_android_service_characteristic_at_index(js_env_t *env, bare_bluetooth_android_service_handle_t *service_handle, uint32_t index) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto service = java_object_t<"android/bluetooth/BluetoothGattService">(jenv, service_handle->handle);
   auto get_characteristics = service.get_class().get_method<java_object_t<"java/util/List">()>("getCharacteristics");
@@ -2775,84 +2222,35 @@ bare_bluetooth_android_service_characteristic_at_index(js_env_t *env, js_callbac
   auto *char_handle = new bare_bluetooth_android_characteristic_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGattCharacteristic">>(jenv, char_obj)};
 
   js_external_t<bare_bluetooth_android_characteristic_handle_t> result;
-  err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_characteristic_handle_t>>(env, char_handle, result);
+  int err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_characteristic_handle_t>>(env, char_handle, result);
   assert(err == 0);
 
-  return static_cast<js_value_t *>(result);
+  return result;
 }
 
-static js_value_t *
-bare_bluetooth_android_characteristic_key(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_characteristic_handle_t *char_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_characteristic_handle_t>(argv[0]), char_handle);
-  assert(err == 0);
-
+static std::string
+bare_bluetooth_android_characteristic_key(js_env_t *env, bare_bluetooth_android_characteristic_handle_t *char_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto characteristic = java_object_t<"android/bluetooth/BluetoothGattCharacteristic">(jenv, char_handle->handle);
-  auto key = bare_bluetooth_android_get_characteristic_key(jenv, characteristic);
-
-  return js_marshall_untyped_value(env, key);
+  return bare_bluetooth_android_get_characteristic_key(jenv, characteristic);
 }
 
-static js_value_t *
-bare_bluetooth_android_characteristic_uuid(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_characteristic_handle_t *char_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_characteristic_handle_t>(argv[0]), char_handle);
-  assert(err == 0);
-
+static std::string
+bare_bluetooth_android_characteristic_uuid(js_env_t *env, bare_bluetooth_android_characteristic_handle_t *char_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto characteristic = java_object_t<"android/bluetooth/BluetoothGattCharacteristic">(jenv, char_handle->handle);
   auto get_uuid = characteristic.get_class().get_method<java_object_t<"java/util/UUID">()>("getUuid");
   auto uuid_obj = get_uuid(characteristic);
   auto to_string = uuid_obj.get_class().get_method<std::string()>("toString");
-  std::string uuid_str = to_string(uuid_obj);
-
-  return js_marshall_untyped_value(env, uuid_str);
+  return to_string(uuid_obj);
 }
 
-static js_value_t *
-bare_bluetooth_android_characteristic_properties(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_characteristic_handle_t *char_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_characteristic_handle_t>(argv[0]), char_handle);
-  assert(err == 0);
-
+static int32_t
+bare_bluetooth_android_characteristic_properties(js_env_t *env, bare_bluetooth_android_characteristic_handle_t *char_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto characteristic = java_object_t<"android/bluetooth/BluetoothGattCharacteristic">(jenv, char_handle->handle);
   auto get_properties = characteristic.get_class().get_method<int()>("getProperties");
-  int properties = get_properties(characteristic);
-
-  js_value_t *result;
-  err = js_create_int32(env, properties, &result);
-  assert(err == 0);
-
-  return result;
+  return get_properties(characteristic);
 }
 
 static void
@@ -3433,7 +2831,6 @@ bare_bluetooth_android_server__on_connection_state(js_env_t *env, js_function_t<
     for (auto &pair : server->subscriptions) {
       pair.second.erase(std::string(event->address));
     }
-
   }
 
   delete event;
@@ -3462,51 +2859,57 @@ bare_bluetooth_android_server__on_descriptor_response(js_env_t *env, js_function
   delete event;
 }
 
-static js_value_t *
-bare_bluetooth_android_server_init(js_env_t *env, js_callback_info_t *info) {
+static js_external_t<bare_bluetooth_android_server_t>
+bare_bluetooth_android_server_init(
+  js_env_t *env,
+  js_object_t ctx,
+  js_function_t<void, js_receiver_t, js_handle_t> on_state_change,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t> on_add_service,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t> on_read_request,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t> on_write_request,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t> on_subscribe,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t> on_unsubscribe,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t> on_advertise_error,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t> on_channel_publish,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t> on_channel_open,
+  js_function_t<void, js_receiver_t, js_handle_t, js_handle_t> on_notify_sent
+) {
   int err;
-
-  size_t argc = 11;
-  js_value_t *argv[11];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 11);
 
   auto *server = new bare_bluetooth_android_server_t();
   server->env = env;
 
-  err = js_create_reference(env, argv[0], 1, &server->ctx);
+  err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &server->ctx);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_state_change, bare_bluetooth_android_server_t, bare_bluetooth_android_server_state_change_t>(env, js_function_t<void, js_receiver_t, js_handle_t>(argv[1]), 0, 1, server, server->tsfn_state_change);
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_state_change, bare_bluetooth_android_server_t, bare_bluetooth_android_server_state_change_t>(env, on_state_change, 0, 1, server, server->tsfn_state_change);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_add_service, bare_bluetooth_android_server_t, bare_bluetooth_android_server_add_service_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t>(argv[2]), 0, 1, server, server->tsfn_add_service);
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_add_service, bare_bluetooth_android_server_t, bare_bluetooth_android_server_add_service_t>(env, on_add_service, 0, 1, server, server->tsfn_add_service);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_read_request, bare_bluetooth_android_server_t, bare_bluetooth_android_server_read_request_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t>(argv[3]), 0, 1, server, server->tsfn_read_request);
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_read_request, bare_bluetooth_android_server_t, bare_bluetooth_android_server_read_request_t>(env, on_read_request, 0, 1, server, server->tsfn_read_request);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_write_request, bare_bluetooth_android_server_t, bare_bluetooth_android_server_write_request_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t, js_handle_t>(argv[4]), 0, 1, server, server->tsfn_write_request);
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_write_request, bare_bluetooth_android_server_t, bare_bluetooth_android_server_write_request_t>(env, on_write_request, 0, 1, server, server->tsfn_write_request);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_subscribe, bare_bluetooth_android_server_t, bare_bluetooth_android_server_subscribe_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t>(argv[5]), 0, 1, server, server->tsfn_subscribe);
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_subscribe, bare_bluetooth_android_server_t, bare_bluetooth_android_server_subscribe_t>(env, on_subscribe, 0, 1, server, server->tsfn_subscribe);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_unsubscribe, bare_bluetooth_android_server_t, bare_bluetooth_android_server_unsubscribe_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t>(argv[6]), 0, 1, server, server->tsfn_unsubscribe);
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_unsubscribe, bare_bluetooth_android_server_t, bare_bluetooth_android_server_unsubscribe_t>(env, on_unsubscribe, 0, 1, server, server->tsfn_unsubscribe);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_advertise_error, bare_bluetooth_android_server_t, bare_bluetooth_android_server_advertise_error_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t>(argv[7]), 0, 1, server, server->tsfn_advertise_error);
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_advertise_error, bare_bluetooth_android_server_t, bare_bluetooth_android_server_advertise_error_t>(env, on_advertise_error, 0, 1, server, server->tsfn_advertise_error);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_channel_publish, bare_bluetooth_android_server_t, bare_bluetooth_android_server_channel_publish_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t>(argv[8]), 0, 1, server, server->tsfn_channel_publish);
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_channel_publish, bare_bluetooth_android_server_t, bare_bluetooth_android_server_channel_publish_t>(env, on_channel_publish, 0, 1, server, server->tsfn_channel_publish);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_channel_open, bare_bluetooth_android_server_t, bare_bluetooth_android_server_channel_open_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, js_handle_t>(argv[9]), 0, 1, server, server->tsfn_channel_open);
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_channel_open, bare_bluetooth_android_server_t, bare_bluetooth_android_server_channel_open_t>(env, on_channel_open, 0, 1, server, server->tsfn_channel_open);
   assert(err == 0);
 
-  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_notify_sent, bare_bluetooth_android_server_t, bare_bluetooth_android_server_notify_sent_t>(env, js_function_t<void, js_receiver_t, js_handle_t, js_handle_t>(argv[10]), 0, 1, server, server->tsfn_notify_sent);
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_notify_sent, bare_bluetooth_android_server_t, bare_bluetooth_android_server_notify_sent_t>(env, on_notify_sent, 0, 1, server, server->tsfn_notify_sent);
   assert(err == 0);
 
   {
@@ -3556,28 +2959,11 @@ bare_bluetooth_android_server_init(js_env_t *env, js_callback_info_t *info) {
   err = js_create_external(env, server, handle);
   assert(err == 0);
 
-  return static_cast<js_value_t *>(handle);
+  return handle;
 }
 
-static js_value_t *
-bare_bluetooth_android_server_add_service(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_server_t *server;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_server_t>(argv[0]), server);
-  assert(err == 0);
-
-  bare_bluetooth_android_service_handle_t *service_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_service_handle_t>(argv[1]), service_handle);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_server_add_service(js_env_t *env, bare_bluetooth_android_server_t *server, bare_bluetooth_android_service_handle_t *service_handle) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto gatt_server = java_object_t<"android/bluetooth/BluetoothGattServer">(jenv, server->gatt_server);
   auto service = java_object_t<"android/bluetooth/BluetoothGattService">(jenv, service_handle->handle);
@@ -3614,25 +3000,10 @@ bare_bluetooth_android_server_add_service(js_env_t *env, js_callback_info_t *inf
 
     js_call_threadsafe_function(server->tsfn_add_service, event);
   }
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_server_start_advertising(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 3;
-  js_value_t *argv[3];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 3);
-
-  bare_bluetooth_android_server_t *server;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_server_t>(argv[0]), server);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_server_start_advertising(js_env_t *env, bare_bluetooth_android_server_t *server, std::optional<std::string> name, std::optional<std::vector<bare_bluetooth_android_uuid_handle_t *>> uuids) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   auto settings_builder_class = java_class_t<"android/bluetooth/le/AdvertiseSettings$Builder">(jenv);
@@ -3647,37 +3018,18 @@ bare_bluetooth_android_server_start_advertising(js_env_t *env, js_callback_info_
   auto data_builder_class = java_class_t<"android/bluetooth/le/AdvertiseData$Builder">(jenv);
   auto data_builder = data_builder_class();
 
-  js_value_type_t type;
-  err = js_typeof(env, argv[2], &type);
-  assert(err == 0);
-
-  if (type != js_null && type != js_undefined) {
-    uint32_t uuid_count;
-    err = js_get_array_length(env, argv[2], &uuid_count);
-    assert(err == 0);
-
+  if (uuids) {
     auto add_service_uuid = data_builder.get_class().get_method<java_object_t<"android/bluetooth/le/AdvertiseData$Builder">(java_object_t<"android/os/ParcelUuid">)>("addServiceUuid");
     auto parcel_uuid_class = java_class_t<"android/os/ParcelUuid">(jenv);
 
-    for (uint32_t i = 0; i < uuid_count; i++) {
-      js_value_t *uuid_val;
-      err = js_get_element(env, argv[2], i, &uuid_val);
-      assert(err == 0);
-
-      bare_bluetooth_android_uuid_handle_t *uuid_handle;
-      err = js_get_value(env, js_external_t<bare_bluetooth_android_uuid_handle_t>(uuid_val), uuid_handle);
-      assert(err == 0);
+    for (auto *uuid_handle : *uuids) {
       auto parcel_uuid = parcel_uuid_class(java_object_t<"java/util/UUID">(jenv, uuid_handle->handle));
       add_service_uuid(data_builder, parcel_uuid);
     }
   }
 
-  js_value_type_t name_type;
-  err = js_typeof(env, argv[1], &name_type);
-  assert(err == 0);
-
   auto set_include_name = data_builder.get_class().get_method<java_object_t<"android/bluetooth/le/AdvertiseData$Builder">(bool)>("setIncludeDeviceName");
-  set_include_name(data_builder, name_type != js_null && name_type != js_undefined);
+  set_include_name(data_builder, name.has_value());
 
   auto build_data = data_builder.get_class().get_method<java_object_t<"android/bluetooth/le/AdvertiseData">()>("build");
   auto adv_data = build_data(data_builder);
@@ -3689,25 +3041,10 @@ bare_bluetooth_android_server_start_advertising(js_env_t *env, js_callback_info_
   auto advertiser = java_object_t<"android/bluetooth/le/BluetoothLeAdvertiser">(jenv, server->advertiser);
   auto start_advertising = advertiser.get_class().get_method<void(java_object_t<"android/bluetooth/le/AdvertiseSettings">, java_object_t<"android/bluetooth/le/AdvertiseData">, java_object_t<"android/bluetooth/le/AdvertiseCallback">)>("startAdvertising");
   start_advertising(advertiser, settings, adv_data, java_object_t<"android/bluetooth/le/AdvertiseCallback">(jenv, server->advertise_callback));
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_server_stop_advertising(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_server_t *server;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_server_t>(argv[0]), server);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_server_stop_advertising(js_env_t *env, bare_bluetooth_android_server_t *server) {
   if (static_cast<jobject>(server->advertise_callback)) {
     auto jenv = bare_bluetooth_android_jvm().get_env().value();
     auto advertiser = java_object_t<"android/bluetooth/le/BluetoothLeAdvertiser">(jenv, server->advertiser);
@@ -3716,107 +3053,31 @@ bare_bluetooth_android_server_stop_advertising(js_env_t *env, js_callback_info_t
 
     server->advertise_callback = {};
   }
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_server_respond_to_request(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 6;
-  js_value_t *argv[6];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 6);
-
-  bare_bluetooth_android_server_t *server;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_server_t>(argv[0]), server);
-  assert(err == 0);
-
-  bare_bluetooth_android_device_handle_t *device_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_device_handle_t>(argv[1]), device_handle);
-  assert(err == 0);
-
-  int32_t request_id;
-  err = js_get_value(env, js_number_t(argv[2]), request_id);
-  assert(err == 0);
-
-  int32_t result_code;
-  err = js_get_value(env, js_number_t(argv[3]), result_code);
-  assert(err == 0);
-
-  int32_t offset;
-  err = js_get_value(env, js_number_t(argv[4]), offset);
-  assert(err == 0);
-
-  js_value_type_t data_type;
-  err = js_typeof(env, argv[5], &data_type);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_server_respond_to_request(js_env_t *env, bare_bluetooth_android_server_t *server, bare_bluetooth_android_device_handle_t *device_handle, int32_t request_id, int32_t result_code, int32_t offset, std::optional<js_typedarray_span_t<uint8_t>> data) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto gatt_server = java_object_t<"android/bluetooth/BluetoothGattServer">(jenv, server->gatt_server);
   auto device = java_object_t<"android/bluetooth/BluetoothDevice">(jenv, device_handle->handle);
 
   java_array_t<unsigned char> response_data;
 
-  if (data_type != js_null && data_type != js_undefined) {
-    size_t length;
-    js_value_t *arraybuffer;
-    size_t typed_offset;
-    err = js_get_typedarray_info(env, argv[5], NULL, NULL, &length, &arraybuffer, &typed_offset);
-    assert(err == 0);
-
-    void *buf;
-    err = js_get_arraybuffer_info(env, arraybuffer, &buf, NULL);
-    assert(err == 0);
-
-    response_data = bare_bluetooth_android_make_byte_array(jenv, static_cast<uint8_t *>(buf) + typed_offset, length);
+  if (data) {
+    response_data = bare_bluetooth_android_make_byte_array(jenv, data->data(), data->size());
   }
 
   auto send_response = gatt_server.get_class().get_method<bool(java_object_t<"android/bluetooth/BluetoothDevice">, int, int, int, java_array_t<unsigned char>)>("sendResponse");
   send_response(gatt_server, device, request_id, result_code, offset, response_data);
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_server_update_value(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 3;
-  js_value_t *argv[3];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 3);
-
-  bare_bluetooth_android_server_t *server;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_server_t>(argv[0]), server);
-  assert(err == 0);
-
-  bare_bluetooth_android_characteristic_handle_t *char_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_characteristic_handle_t>(argv[1]), char_handle);
-  assert(err == 0);
-
-  size_t length;
-  js_value_t *arraybuffer;
-  size_t offset;
-  err = js_get_typedarray_info(env, argv[2], NULL, NULL, &length, &arraybuffer, &offset);
-  assert(err == 0);
-
-  void *buf;
-  err = js_get_arraybuffer_info(env, arraybuffer, &buf, NULL);
-  assert(err == 0);
-
-  uint8_t *data = static_cast<uint8_t *>(buf) + offset;
-
+static bool
+bare_bluetooth_android_server_update_value(js_env_t *env, bare_bluetooth_android_server_t *server, bare_bluetooth_android_characteristic_handle_t *char_handle, js_typedarray_span_t<uint8_t> data) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto characteristic = java_object_t<"android/bluetooth/BluetoothGattCharacteristic">(jenv, char_handle->handle);
   auto gatt_server = java_object_t<"android/bluetooth/BluetoothGattServer">(jenv, server->gatt_server);
 
-  auto byte_array = bare_bluetooth_android_make_byte_array(jenv, data, length);
+  auto byte_array = bare_bluetooth_android_make_byte_array(jenv, data.data(), data.size());
   auto set_value = characteristic.get_class().get_method<bool(java_array_t<unsigned char>)>("setValue");
   set_value(characteristic, byte_array);
 
@@ -3839,11 +3100,7 @@ bare_bluetooth_android_server_update_value(js_env_t *env, js_callback_info_t *in
     }
   }
 
-  js_value_t *result;
-  err = js_get_boolean(env, all_ok, &result);
-  assert(err == 0);
-
-  return result;
+  return all_ok;
 }
 
 static void
@@ -3876,25 +3133,8 @@ bare_bluetooth_android_on_l2cap_acceptor_error(java_env_t env, java_object_t<"to
   js_call_threadsafe_function(server->tsfn_channel_open, event);
 }
 
-static js_value_t *
-bare_bluetooth_android_server_publish_channel(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_server_t *server;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_server_t>(argv[0]), server);
-  assert(err == 0);
-
-  bool encrypted;
-  err = js_get_value(env, js_boolean_t(argv[1]), encrypted);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_server_publish_channel(js_env_t *env, bare_bluetooth_android_server_t *server, bool encrypted) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   auto activity = bare_bluetooth_android_get_context(jenv);
@@ -3918,7 +3158,7 @@ bare_bluetooth_android_server_publish_channel(js_env_t *env, js_callback_info_t 
     event->psm = 0;
     event->error = "Failed to create L2CAP server socket";
     js_call_threadsafe_function(server->tsfn_channel_publish, event);
-    return NULL;
+    return;
   }
 
   auto *ch = new bare_bluetooth_android_server_t::published_channel_t();
@@ -3941,29 +3181,10 @@ bare_bluetooth_android_server_publish_channel(js_env_t *env, js_callback_info_t 
 
   auto start = acceptor.get_class().get_method<void()>("start");
   start(acceptor);
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_server_unpublish_channel(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_server_t *server;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_server_t>(argv[0]), server);
-  assert(err == 0);
-
-  uint32_t psm;
-  err = js_get_value(env, js_number_t(argv[1]), psm);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_server_unpublish_channel(js_env_t *env, bare_bluetooth_android_server_t *server, uint32_t psm) {
   for (auto it = server->published_channels.begin(); it != server->published_channels.end(); ++it) {
     auto *ch = *it;
     if (ch->psm == static_cast<uint16_t>(psm)) {
@@ -3982,24 +3203,11 @@ bare_bluetooth_android_server_unpublish_channel(js_env_t *env, js_callback_info_
       break;
     }
   }
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_server_destroy(js_env_t *env, js_callback_info_t *info) {
+static void
+bare_bluetooth_android_server_destroy(js_env_t *env, bare_bluetooth_android_server_t *server) {
   int err;
-
-  size_t argc = 1;
-  js_value_t *argv[1];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 1);
-
-  bare_bluetooth_android_server_t *server;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_server_t>(argv[0]), server);
-  assert(err == 0);
 
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
@@ -4048,29 +3256,10 @@ bare_bluetooth_android_server_destroy(js_env_t *env, js_callback_info_t *info) {
   js_release_threadsafe_function(server->tsfn_state_change, js_threadsafe_function_abort);
 
   delete server;
-
-  return NULL;
 }
 
-static js_value_t *
-bare_bluetooth_android_create_mutable_service(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_uuid_handle_t *uuid_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_uuid_handle_t>(argv[0]), uuid_handle);
-  assert(err == 0);
-
-  bool is_primary;
-  err = js_get_value(env, js_boolean_t(argv[1]), is_primary);
-  assert(err == 0);
-
+static js_external_t<bare_bluetooth_android_service_handle_t>
+bare_bluetooth_android_create_mutable_service(js_env_t *env, bare_bluetooth_android_uuid_handle_t *uuid_handle, bool is_primary) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   auto service_class = java_class_t<"android/bluetooth/BluetoothGattService">(jenv);
@@ -4079,34 +3268,15 @@ bare_bluetooth_android_create_mutable_service(js_env_t *env, js_callback_info_t 
   auto *service_handle = new bare_bluetooth_android_service_handle_t{java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGattService">>(jenv, service)};
 
   js_external_t<bare_bluetooth_android_service_handle_t> handle;
-  err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_service_handle_t>>(env, service_handle, handle);
+  int err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_service_handle_t>>(env, service_handle, handle);
   assert(err == 0);
 
-  return static_cast<js_value_t *>(handle);
+  return handle;
 }
 
-static js_value_t *
-bare_bluetooth_android_create_mutable_characteristic(js_env_t *env, js_callback_info_t *info) {
+static js_external_t<bare_bluetooth_android_characteristic_handle_t>
+bare_bluetooth_android_create_mutable_characteristic(js_env_t *env, bare_bluetooth_android_uuid_handle_t *uuid_handle, int32_t properties, int32_t js_permissions, std::optional<js_typedarray_span_t<uint8_t>> value) {
   int err;
-
-  size_t argc = 4;
-  js_value_t *argv[4];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 4);
-
-  bare_bluetooth_android_uuid_handle_t *uuid_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_uuid_handle_t>(argv[0]), uuid_handle);
-  assert(err == 0);
-
-  int32_t properties;
-  err = js_get_value(env, js_number_t(argv[1]), properties);
-  assert(err == 0);
-
-  int32_t js_permissions;
-  err = js_get_value(env, js_number_t(argv[2]), js_permissions);
-  assert(err == 0);
 
   int32_t android_permissions = 0;
   if (js_permissions & 0x01) android_permissions |= 0x01;
@@ -4131,22 +3301,8 @@ bare_bluetooth_android_create_mutable_characteristic(js_env_t *env, js_callback_
     add_descriptor(characteristic, cccd);
   }
 
-  js_value_type_t val_type;
-  err = js_typeof(env, argv[3], &val_type);
-  assert(err == 0);
-
-  if (val_type != js_null && val_type != js_undefined) {
-    size_t length;
-    js_value_t *arraybuffer;
-    size_t offset;
-    err = js_get_typedarray_info(env, argv[3], NULL, NULL, &length, &arraybuffer, &offset);
-    assert(err == 0);
-
-    void *buf;
-    err = js_get_arraybuffer_info(env, arraybuffer, &buf, NULL);
-    assert(err == 0);
-
-    auto byte_array = bare_bluetooth_android_make_byte_array(jenv, static_cast<uint8_t *>(buf) + offset, length);
+  if (value) {
+    auto byte_array = bare_bluetooth_android_make_byte_array(jenv, value->data(), value->size());
     auto set_value = characteristic.get_class().get_method<bool(java_array_t<unsigned char>)>("setValue");
     set_value(characteristic, byte_array);
   }
@@ -4157,44 +3313,18 @@ bare_bluetooth_android_create_mutable_characteristic(js_env_t *env, js_callback_
   err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_characteristic_handle_t>>(env, char_handle, handle);
   assert(err == 0);
 
-  return static_cast<js_value_t *>(handle);
+  return handle;
 }
 
-static js_value_t *
-bare_bluetooth_android_service_set_characteristics(js_env_t *env, js_callback_info_t *info) {
-  int err;
-
-  size_t argc = 2;
-  js_value_t *argv[2];
-
-  err = js_get_callback_info(env, info, &argc, argv, NULL, NULL);
-  assert(err == 0);
-  assert(argc == 2);
-
-  bare_bluetooth_android_service_handle_t *service_handle;
-  err = js_get_value(env, js_external_t<bare_bluetooth_android_service_handle_t>(argv[0]), service_handle);
-  assert(err == 0);
-
-  uint32_t count;
-  err = js_get_array_length(env, argv[1], &count);
-  assert(err == 0);
-
+static void
+bare_bluetooth_android_service_set_characteristics(js_env_t *env, bare_bluetooth_android_service_handle_t *service_handle, std::vector<bare_bluetooth_android_characteristic_handle_t *> characteristics) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto service = java_object_t<"android/bluetooth/BluetoothGattService">(jenv, service_handle->handle);
   auto add_characteristic = service.get_class().get_method<bool(java_object_t<"android/bluetooth/BluetoothGattCharacteristic">)>("addCharacteristic");
 
-  for (uint32_t i = 0; i < count; i++) {
-    js_value_t *char_val;
-    err = js_get_element(env, argv[1], i, &char_val);
-    assert(err == 0);
-
-    bare_bluetooth_android_characteristic_handle_t *char_handle;
-    err = js_get_value(env, js_external_t<bare_bluetooth_android_characteristic_handle_t>(char_val), char_handle);
-    assert(err == 0);
+  for (auto *char_handle : characteristics) {
     add_characteristic(service, java_object_t<"android/bluetooth/BluetoothGattCharacteristic">(jenv, char_handle->handle));
   }
-
-  return NULL;
 }
 
 static void
@@ -4460,10 +3590,7 @@ bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
 
 #define V(name, fn) \
   { \
-    js_value_t *val; \
-    err = js_create_function(env, name, -1, fn, nullptr, &val); \
-    assert(err == 0); \
-    err = js_set_named_property(env, exports, name, val); \
+    err = js_set_property<fn>(env, exports, name); \
     assert(err == 0); \
   }
 
