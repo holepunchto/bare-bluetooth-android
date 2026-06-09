@@ -80,7 +80,7 @@ Emitted when the Bluetooth adapter state changes. The listener receives the new 
 
 #### `event: 'discover'`
 
-Emitted when a peripheral is discovered during scanning. The listener receives a `peripheral` object with `handle`, `id`, `name`, `rssi`, and `serviceData` properties. `serviceData` is an object with UUID string keys and either `Uint8Array` values or `null` when the advertisement has no service data.
+Emits when a peripheral is discovered during scanning. The listener receives a `Peripheral` instance. Its `scanResult` is a `ScanResult` exposing `scanResult.device` (a `Device` with `address` and `name`), `scanResult.rssi`, and `scanResult.scanRecord` (a `ScanRecord` with `serviceData`, or `null` when the advertisement has no scan record). The peripheral also exposes `id`, `name`, `rssi`, and `serviceData` derived from the scan result.
 
 #### `event: 'connect'`
 
@@ -108,32 +108,29 @@ Emitted when scanning fails. The listener receives the `errorCode`.
 
 Scan mode constants for use with `central.startScan()`.
 
-#### `const peripheral = new Peripheral(peripheralHandle[, opts])`
+#### `const peripheral = new Peripheral({ scanResult })`
 
-Create a new peripheral instance. Typically obtained via the `'connect'` event on `Central` rather than constructed directly.
+Create a new peripheral instance from a `ScanResult`. Typically obtained via the `'discover'` event on `Central` rather than constructed directly. Its identity and advertised metadata are derived from the scan result.
 
-Options include:
+#### `peripheral.scanResult`
 
-```js
-opts = {
-  connectHandle: null,
-  id: null,
-  name: null,
-  serviceData: null
-}
-```
+The `ScanResult` from the most recent advertisement for this peripheral.
 
 #### `peripheral.id`
 
-The unique identifier of the peripheral.
+The unique identifier of the peripheral, equal to `scanResult.device.address`.
 
 #### `peripheral.name`
 
-The advertised name of the peripheral, or `null` if unavailable.
+The advertised name of the peripheral, or `null` if unavailable. Equal to `scanResult.device.name`.
+
+#### `peripheral.rssi`
+
+The signal strength of the most recent advertisement, equal to `scanResult.rssi`.
 
 #### `peripheral.serviceData`
 
-The last discovered service data snapshot for the peripheral, or `null` if unavailable.
+The advertised service data, or `null` when the advertisement carried no scan record or no service data.
 
 #### `peripheral.discoverServices()`
 
@@ -214,6 +211,30 @@ Emitted when the MTU is changed. The listener receives the new `mtu` and an opti
 #### `Peripheral.PROPERTY_INDICATE`
 
 Characteristic property constants.
+
+#### `scanResult.device`
+
+The `Device` the advertisement came from, mirroring Android's `ScanResult.getDevice()`.
+
+#### `scanResult.rssi`
+
+The received signal strength in dBm, mirroring `ScanResult.getRssi()`.
+
+#### `scanResult.scanRecord`
+
+The `ScanRecord` parsed from the advertisement, or `null` when the advertisement carried no scan record. Mirrors `ScanResult.getScanRecord()`.
+
+#### `scanRecord.serviceData`
+
+An object with UUID string keys and `Uint8Array` values, or `null` when the advertisement carried no service data. Mirrors `ScanRecord.getServiceData()`.
+
+#### `device.address`
+
+The hardware address of the device, mirroring `BluetoothDevice.getAddress()`.
+
+#### `device.name`
+
+The advertised device name, or `null` if unavailable. Mirrors `BluetoothDevice.getName()`.
 
 #### `const server = new Server()`
 

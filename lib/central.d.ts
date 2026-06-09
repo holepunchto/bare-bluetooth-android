@@ -2,19 +2,10 @@ import { EventEmitter, EventMap } from 'bare-events'
 import Peripheral from './peripheral'
 
 export type BluetoothState = 'off' | 'turningOn' | 'on' | 'turningOff'
-export type ServiceData = { [uuid: string]: Uint8Array }
-
-export interface DiscoveredPeripheral {
-  handle: ArrayBuffer
-  id: string
-  name: string | null
-  rssi: number
-  serviceData: ServiceData | null
-}
 
 export interface CentralEventMap extends EventMap {
   stateChange: [state: BluetoothState]
-  discover: [peripheral: DiscoveredPeripheral]
+  discover: [peripheral: Peripheral]
   connect: [peripheral: Peripheral, error?: string]
   disconnect: [peripheral: Peripheral | null, error?: string]
   connectFail: [id: string, error: string]
@@ -26,9 +17,9 @@ export default class Central extends EventEmitter<CentralEventMap> {
 
   readonly state: BluetoothState
 
-  startScan(serviceUUIDs?: string[]): void
+  startScan(serviceUUIDs?: string[], opts?: { scanMode?: number }): void
   stopScan(): void
-  connect(peripheral: DiscoveredPeripheral): void
+  connect(peripheral: Peripheral): void
   disconnect(peripheral: Peripheral): void
   destroy(): void
 

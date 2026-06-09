@@ -2,13 +2,11 @@ import { EventEmitter, EventMap } from 'bare-events'
 import Service from './service'
 import Characteristic from './characteristic'
 import L2CAPChannel from './channel'
-import type { ServiceData } from './central'
+import ScanResult from './scan-result'
+import type { ServiceData } from './scan-record'
 
 export interface PeripheralOptions {
-  connectHandle?: ArrayBuffer
-  id?: string
-  name?: string | null
-  serviceData?: ServiceData | null
+  scanResult: ScanResult
 }
 
 export interface PeripheralEventMap extends EventMap {
@@ -27,10 +25,12 @@ export interface PeripheralEventMap extends EventMap {
 }
 
 export default class Peripheral extends EventEmitter<PeripheralEventMap> {
-  constructor(peripheralHandle: ArrayBuffer, opts?: PeripheralOptions)
+  constructor(opts: PeripheralOptions)
 
+  readonly scanResult: ScanResult
   readonly id: string
   readonly name: string | null
+  readonly rssi: number
   readonly serviceData: ServiceData | null
 
   discoverServices(): void
