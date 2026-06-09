@@ -43,6 +43,9 @@ add_dex(
     lib/GattCallback.java
     lib/GattServerCallback.java
     lib/AdvertiseCallback.java
+    lib/L2capConnector.java
+    lib/L2capReader.java
+    lib/L2capAcceptor.java
   INCLUDE_JARS
     ${android_jar}
 )
