@@ -415,15 +415,11 @@ bare_bluetooth_android_channel__on_data(js_env_t *env, js_function_t<void, js_re
 
   js_value_t *argv[1];
 
-  js_value_t *arraybuffer;
-  void *buf;
-  err = js_create_arraybuffer(env, event->data.size(), &buf, &arraybuffer);
+  js_typedarray_t<> view;
+  err = js_create_typedarray(env, event->data, view);
   assert(err == 0);
 
-  memcpy(buf, event->data.data(), event->data.size());
-
-  err = js_create_typedarray(env, js_uint8array, event->data.size(), arraybuffer, 0, &argv[0]);
-  assert(err == 0);
+  argv[0] = static_cast<js_value_t *>(view);
 
   delete event;
 
@@ -1707,14 +1703,11 @@ bare_bluetooth_android_peripheral__on_read(js_env_t *env, js_function_t<void, js
   argv[1] = js_marshall_untyped_value(env, event->uuid);
 
   if (!event->data.empty()) {
-    js_value_t *arraybuffer;
-    void *buf;
-    err = js_create_arraybuffer(env, event->data.size(), &buf, &arraybuffer);
+    js_typedarray_t<> view;
+    err = js_create_typedarray(env, event->data, view);
     assert(err == 0);
-    memcpy(buf, event->data.data(), event->data.size());
 
-    err = js_create_typedarray(env, js_uint8array, event->data.size(), arraybuffer, 0, &argv[2]);
-    assert(err == 0);
+    argv[2] = static_cast<js_value_t *>(view);
   } else {
     err = js_get_null(env, &argv[2]);
     assert(err == 0);
@@ -1806,14 +1799,11 @@ bare_bluetooth_android_peripheral__on_notify(js_env_t *env, js_function_t<void, 
   argv[0] = js_marshall_untyped_value(env, key);
 
   if (!event->data.empty()) {
-    js_value_t *arraybuffer;
-    void *buf;
-    err = js_create_arraybuffer(env, event->data.size(), &buf, &arraybuffer);
+    js_typedarray_t<> view;
+    err = js_create_typedarray(env, event->data, view);
     assert(err == 0);
-    memcpy(buf, event->data.data(), event->data.size());
 
-    err = js_create_typedarray(env, js_uint8array, event->data.size(), arraybuffer, 0, &argv[1]);
-    assert(err == 0);
+    argv[1] = static_cast<js_value_t *>(view);
   } else {
     err = js_get_null(env, &argv[1]);
     assert(err == 0);
@@ -3175,14 +3165,11 @@ bare_bluetooth_android_server__on_write_request(js_env_t *env, js_function_t<voi
   assert(err == 0);
 
   if (!event->data.empty()) {
-    js_value_t *arraybuffer;
-    void *buf;
-    err = js_create_arraybuffer(env, event->data.size(), &buf, &arraybuffer);
+    js_typedarray_t<> view;
+    err = js_create_typedarray(env, event->data, view);
     assert(err == 0);
-    memcpy(buf, event->data.data(), event->data.size());
 
-    err = js_create_typedarray(env, js_uint8array, event->data.size(), arraybuffer, 0, &argv[4]);
-    assert(err == 0);
+    argv[4] = static_cast<js_value_t *>(view);
   } else {
     err = js_get_null(env, &argv[4]);
     assert(err == 0);
