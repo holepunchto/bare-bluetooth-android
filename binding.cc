@@ -1225,7 +1225,10 @@ bare_bluetooth_android_on_scan_result(java_env_t env, java_object_t<"to/holepunc
         auto uuid = bare_bluetooth_android_get_uuid_string(env, parcel_uuid);
 
         auto data = java_array_t<unsigned char>(env, value_obj);
-        event->scan_record.service_data.push_back({std::move(uuid), data.slice()});
+
+        if (data.size() > 0) {
+          event->scan_record.service_data.push_back({std::move(uuid), data.slice()});
+        }
       }
     }
   }
