@@ -47,6 +47,7 @@ test('connect and discover services', { skip: isCI }, async (t) => {
   })
 
   t.ok(typeof peripheral.id === 'string', 'peripheral id is string')
+  t.is(peripheral.serviceData, discovered.serviceData, 'peripheral keeps discovered serviceData')
 
   peripheral.discoverServices()
 

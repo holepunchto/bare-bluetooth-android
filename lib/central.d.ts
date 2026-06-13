@@ -17,7 +17,7 @@ export default class Central extends EventEmitter<CentralEventMap> {
 
   readonly state: BluetoothState
 
-  startScan(serviceUUIDs?: string[]): void
+  startScan(serviceUUIDs?: string[], opts?: { scanMode?: number }): void
   stopScan(): void
   connect(peripheral: Peripheral): void
   disconnect(peripheral: Peripheral): void
@@ -27,4 +27,9 @@ export default class Central extends EventEmitter<CentralEventMap> {
   static readonly STATE_TURNING_ON: number
   static readonly STATE_ON: number
   static readonly STATE_TURNING_OFF: number
+
+  static readonly SCAN_MODE_OPPORTUNISTIC: number
+  static readonly SCAN_MODE_LOW_POWER: number
+  static readonly SCAN_MODE_BALANCED: number
+  static readonly SCAN_MODE_LOW_LATENCY: number
 }

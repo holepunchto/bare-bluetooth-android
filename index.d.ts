@@ -11,3 +11,6 @@ export {
 } from './lib/server'
 export { default as Central } from './lib/central'
 export { default as Peripheral, PeripheralOptions } from './lib/peripheral'
+export { default as ScanResult } from './lib/scan-result'
+export { default as ScanRecord, ServiceData } from './lib/scan-record'
+export { default as Device } from './lib/device'
