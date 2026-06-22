@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <uv.h>
 
+#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -88,10 +89,12 @@ bare_bluetooth_android_check_exception(JNIEnv *env) {
 struct bare_bluetooth_android_peripheral_t;
 
 static std::unordered_map<std::string, bare_bluetooth_android_peripheral_t *> bare_bluetooth_android_peripherals;
+static std::mutex bare_bluetooth_android_peripherals_mutex;
 
 static bare_bluetooth_android_peripheral_t *
 bare_bluetooth_android_find_peripheral(JNIEnv *env, java_object_t<"android/bluetooth/BluetoothGatt"> gatt) {
   auto address = bare_bluetooth_android_get_device_address(env, gatt);
+  std::lock_guard<std::mutex> lock(bare_bluetooth_android_peripherals_mutex);
   auto it = bare_bluetooth_android_peripherals.find(address);
   if (it == bare_bluetooth_android_peripherals.end()) return NULL;
   return it->second;
@@ -1744,6 +1747,7 @@ bare_bluetooth_android_peripheral_init(
 
   {
     auto address = device_local.get_class().get_method<std::string()>("getAddress")(device_local);
+    std::lock_guard<std::mutex> lock(bare_bluetooth_android_peripherals_mutex);
     bare_bluetooth_android_peripherals[address] = peripheral;
   }
 
@@ -2098,6 +2102,14 @@ bare_bluetooth_android_peripheral_release(bare_bluetooth_android_peripheral_t *p
 
   if (peripheral->released) return;
   peripheral->released = true;
+
+  {
+    auto jenv = bare_bluetooth_android_jvm().get_env().value();
+    auto device = java_object_t<"android/bluetooth/BluetoothDevice">(jenv, peripheral->device);
+    auto address = device.get_class().get_method<std::string()>("getAddress")(device);
+    std::lock_guard<std::mutex> lock(bare_bluetooth_android_peripherals_mutex);
+    bare_bluetooth_android_peripherals.erase(address);
+  }
 
   if (peripheral->l2cap_open) {
     auto jenv = bare_bluetooth_android_jvm().get_env().value();
