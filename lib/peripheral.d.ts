@@ -12,14 +12,14 @@ export interface PeripheralOptions {
 export interface PeripheralEventMap extends EventMap {
   servicesDiscover: [services: Service[] | null, error?: string]
   characteristicsDiscover: [
-    service: string,
+    service: Service | null,
     characteristics: Characteristic[] | null,
     error?: string
   ]
-  read: [characteristic: string, data: Uint8Array, error?: string]
-  write: [characteristic: string, error?: string]
-  notify: [characteristic: string, data: Uint8Array, error?: string]
-  notifyState: [characteristic: string, isNotifying: boolean, error?: string]
+  read: [characteristic: Characteristic | null, data: Uint8Array, error?: string]
+  write: [characteristic: Characteristic | null, error?: string]
+  notify: [characteristic: Characteristic | null, data: Uint8Array, error?: string]
+  notifyState: [characteristic: Characteristic | null, isNotifying: boolean, error?: string]
   channelOpen: [channel: L2CAPChannel | null, error?: string]
   mtuChanged: [mtu: number, error?: string]
 }
@@ -34,11 +34,11 @@ export default class Peripheral extends EventEmitter<PeripheralEventMap> {
   readonly serviceData: ServiceData | null
 
   discoverServices(): void
-  discoverCharacteristics(service: string): void
-  read(characteristic: string): void
-  write(characteristic: string, data: Uint8Array, withResponse?: boolean): void
-  subscribe(characteristic: string): void
-  unsubscribe(characteristic: string): void
+  discoverCharacteristics(service: Service): void
+  read(characteristic: Characteristic): void
+  write(characteristic: Characteristic, data: Uint8Array, withResponse?: boolean): void
+  subscribe(characteristic: Characteristic): void
+  unsubscribe(characteristic: Characteristic): void
   openL2CAPChannel(psm: number): void
   requestMtu(mtu: number): void
   destroy(): void

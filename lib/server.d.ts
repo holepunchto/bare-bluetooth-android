@@ -15,25 +15,32 @@ export interface ChannelOptions {
 }
 
 export interface ReadRequest {
+  handle: unknown
+  requestId: number
   characteristicUuid: string
   offset: number
 }
 
 export interface WriteRequest {
+  handle: unknown
+  requestId: number
   characteristicUuid: string
   data: Uint8Array
+  offset: number
+  responseNeeded: boolean
 }
 
 export interface ServerEventMap extends EventMap {
   stateChange: [state: BluetoothState]
-  addService: [uuid: string, error?: string]
+  serviceAdd: [uuid: string, error?: string]
   channelPublish: [psm: number, error?: string]
   channelOpen: [channel: L2CAPChannel | null, error?: string]
   readRequest: [request: ReadRequest]
-  writeRequests: [requests: WriteRequest[]]
+  writeRequest: [requests: WriteRequest[]]
   subscribe: [deviceAddress: string, characteristicUuid: string]
   unsubscribe: [deviceAddress: string, characteristicUuid: string]
   advertiseError: [errorCode: number, error: string]
+  notifySent: [deviceAddress: string, status: number]
 }
 
 declare class Server extends EventEmitter<ServerEventMap> {
@@ -44,7 +51,7 @@ declare class Server extends EventEmitter<ServerEventMap> {
   addService(service: Service): void
   startAdvertising(opts?: AdvertisingOptions): void
   stopAdvertising(): void
-  respondToRequest(request: ReadRequest, result: number, data?: Uint8Array | null): void
+  respondToRequest(request: ReadRequest, result: number, data?: Uint8Array): void
   updateValue(characteristic: Characteristic, data: Uint8Array): boolean
   publishChannel(opts?: ChannelOptions): void
   unpublishChannel(psm: number): void

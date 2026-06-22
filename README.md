@@ -80,7 +80,7 @@ Emitted when the Bluetooth adapter state changes. The listener receives the new 
 
 #### `event: 'discover'`
 
-Emits when a peripheral is discovered during scanning. The listener receives a `Peripheral` instance. Its `scanResult` is a `ScanResult` exposing `scanResult.device` (a `Device` with `address` and `name`), `scanResult.rssi`, and `scanResult.scanRecord` (a `ScanRecord` with `serviceData`, or `null` when the advertisement has no scan record). The peripheral also exposes `id`, `name`, `rssi`, and `serviceData` derived from the scan result.
+Emitted when a peripheral is discovered during scanning. The listener receives a `Peripheral` instance. Its `scanResult` is a `ScanResult` exposing `scanResult.device` (a `Device` with `address` and `name`), `scanResult.rssi`, and `scanResult.scanRecord` (a `ScanRecord` with `serviceData`, or `null` when the advertisement has no scan record). The peripheral also exposes `id`, `name`, `rssi`, and `serviceData` derived from the scan result.
 
 #### `event: 'connect'`
 
