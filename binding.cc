@@ -179,6 +179,7 @@ struct bare_bluetooth_android_central_t {
   java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/ScanCallback">> scan_callback;
 
   std::unordered_set<std::string> connected_addresses;
+  std::mutex connected_addresses_mutex;
   java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/GattCallback">> gatt_callback_ref;
 };
 
@@ -1238,14 +1239,21 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
   auto address = bare_bluetooth_android_get_device_address(env, gatt);
 
   if (new_state == 2 && status == 0) {
-    central->connected_addresses.insert(address);
+    {
+      std::lock_guard<std::mutex> lock(central->connected_addresses_mutex);
+      central->connected_addresses.insert(address);
+    }
 
     auto *event = new bare_bluetooth_android_central_connect_t();
     event->address = address;
 
     js_call_threadsafe_function(central->tsfn_connect, event);
   } else if (new_state == 0) {
-    bool was_connected = central->connected_addresses.erase(address) > 0;
+    bool was_connected;
+    {
+      std::lock_guard<std::mutex> lock(central->connected_addresses_mutex);
+      was_connected = central->connected_addresses.erase(address) > 0;
+    }
 
     if (was_connected) {
       auto *event = new bare_bluetooth_android_central_disconnect_t();
