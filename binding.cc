@@ -184,6 +184,10 @@ struct bare_bluetooth_android_central_t {
   std::unordered_set<std::string> connected_addresses;
   std::mutex connected_addresses_mutex;
   java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/GattCallback">> gatt_callback_ref;
+
+  std::atomic<bool> destroyed;
+  bool exiting;
+  js_deferred_teardown_t *teardown;
 };
 
 typedef struct {
@@ -791,6 +795,11 @@ bare_bluetooth_android_central__on_state_change(js_env_t *env, js_function_t<voi
   auto *event = static_cast<bare_bluetooth_android_central_state_change_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
+  if (central->exiting) {
+    delete event;
+    return;
+  }
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -814,6 +823,11 @@ bare_bluetooth_android_central__on_discover(js_env_t *env, js_function_t<void, j
 
   auto *event = static_cast<bare_bluetooth_android_central_discover_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
+
+  if (central->exiting) {
+    delete event;
+    return;
+  }
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -902,6 +916,11 @@ bare_bluetooth_android_central__on_connect(js_env_t *env, js_function_t<void, js
   auto *event = static_cast<bare_bluetooth_android_central_connect_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
+  if (central->exiting) {
+    delete event;
+    return;
+  }
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -943,6 +962,11 @@ bare_bluetooth_android_central__on_disconnect(js_env_t *env, js_function_t<void,
   auto *event = static_cast<bare_bluetooth_android_central_disconnect_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
+  if (central->exiting) {
+    delete event;
+    return;
+  }
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -976,6 +1000,11 @@ bare_bluetooth_android_central__on_connect_fail(js_env_t *env, js_function_t<voi
   auto *event = static_cast<bare_bluetooth_android_central_connect_fail_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
+  if (central->exiting) {
+    delete event;
+    return;
+  }
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -1000,6 +1029,11 @@ bare_bluetooth_android_central__on_scan_fail(js_env_t *env, js_function_t<void, 
   auto *event = static_cast<bare_bluetooth_android_central_scan_fail_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
+  if (central->exiting) {
+    delete event;
+    return;
+  }
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -1017,6 +1051,9 @@ bare_bluetooth_android_central__on_scan_fail(js_env_t *env, js_function_t<void, 
   assert(err == 0);
 }
 
+static void
+bare_bluetooth_android_central__on_teardown(js_deferred_teardown_t *handle, void *data);
+
 static js_external_t<bare_bluetooth_android_central_t>
 bare_bluetooth_android_central_init(
   js_env_t *env,
@@ -1032,6 +1069,8 @@ bare_bluetooth_android_central_init(
 
   auto *central = new bare_bluetooth_android_central_t();
   central->env = env;
+  central->destroyed = false;
+  central->exiting = false;
 
   err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &central->ctx);
   assert(err == 0);
@@ -1081,6 +1120,9 @@ bare_bluetooth_android_central_init(
 
   js_external_t<bare_bluetooth_android_central_t> handle;
   err = js_create_external(env, central, handle);
+  assert(err == 0);
+
+  err = js_add_deferred_teardown_callback(env, bare_bluetooth_android_central__on_teardown, (void *) central, &central->teardown);
   assert(err == 0);
 
   return handle;
@@ -1173,8 +1215,8 @@ bare_bluetooth_android_central_disconnect(js_env_t *env, bare_bluetooth_android_
 }
 
 static void
-bare_bluetooth_android_central_destroy(js_env_t *env, bare_bluetooth_android_central_t *central) {
-  int err = js_delete_reference(env, central->ctx);
+bare_bluetooth_android_central__finalize(bare_bluetooth_android_central_t *central) {
+  int err = js_delete_reference(central->env, central->ctx);
   assert(err == 0);
 
   js_release_threadsafe_function(central->tsfn_scan_fail, js_threadsafe_function_abort);
@@ -1184,7 +1226,29 @@ bare_bluetooth_android_central_destroy(js_env_t *env, bare_bluetooth_android_cen
   js_release_threadsafe_function(central->tsfn_discover, js_threadsafe_function_abort);
   js_release_threadsafe_function(central->tsfn_state_change, js_threadsafe_function_abort);
 
+  err = js_finish_deferred_teardown_callback(central->teardown);
+  assert(err == 0);
+
   delete central;
+}
+
+static void
+bare_bluetooth_android_central__on_teardown(js_deferred_teardown_t *handle, void *data) {
+  auto *central = static_cast<bare_bluetooth_android_central_t *>(data);
+  central->exiting = true;
+
+  bool expected = false;
+  if (!central->destroyed.compare_exchange_strong(expected, true)) return;
+
+  bare_bluetooth_android_central__finalize(central);
+}
+
+static void
+bare_bluetooth_android_central_destroy(js_env_t *env, bare_bluetooth_android_central_t *central) {
+  bool expected = false;
+  if (!central->destroyed.compare_exchange_strong(expected, true)) return;
+
+  bare_bluetooth_android_central__finalize(central);
 }
 
 static js_external_t<bare_bluetooth_android_uuid_handle_t>
@@ -1207,6 +1271,7 @@ bare_bluetooth_android_create_uuid(js_env_t *env, std::string str) {
 static void
 bare_bluetooth_android_on_scan_result(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/ScanCallback"> self, long native_ptr, int callback_type, java_object_t<"android/bluetooth/le/ScanResult"> scan_result) {
   auto *central = reinterpret_cast<bare_bluetooth_android_central_t *>(native_ptr);
+  if (central->destroyed) return;
 
   auto device = scan_result.get_class().get_method<java_object_t<"android/bluetooth/BluetoothDevice">()>("getDevice")(scan_result);
   auto address = device.get_class().get_method<std::string()>("getAddress")(device);
@@ -1263,6 +1328,7 @@ bare_bluetooth_android_on_scan_result(java_env_t env, java_object_t<"to/holepunc
 static void
 bare_bluetooth_android_on_scan_failed(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/ScanCallback"> self, long native_ptr, int error_code) {
   auto *central = reinterpret_cast<bare_bluetooth_android_central_t *>(native_ptr);
+  if (central->destroyed) return;
 
   auto *event = new bare_bluetooth_android_central_scan_fail_t();
   event->error_code = error_code;
@@ -1273,6 +1339,7 @@ bare_bluetooth_android_on_scan_failed(java_env_t env, java_object_t<"to/holepunc
 static void
 bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattCallback"> self, long native_ptr, java_object_t<"android/bluetooth/BluetoothGatt"> gatt, int status, int new_state) {
   auto *central = reinterpret_cast<bare_bluetooth_android_central_t *>(native_ptr);
+  if (central->destroyed) return;
 
   auto address = bare_bluetooth_android_get_device_address(env, gatt);
 
