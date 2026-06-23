@@ -3148,26 +3148,6 @@ bare_bluetooth_android_server_destroy(js_env_t *env, bare_bluetooth_android_serv
 
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
-  for (auto *ch : server->published_channels) {
-    auto acceptor = java_object_t<"to/holepunch/bare/bluetooth/L2capAcceptor">(jenv, ch->acceptor);
-    auto stop = acceptor.get_class().get_method<void()>("stop");
-    stop(acceptor);
-    static_cast<JNIEnv *>(jenv)->ExceptionClear();
-
-    auto close_ss = ch->server_socket.get_class().get_method<void()>("close");
-    close_ss(ch->server_socket);
-    static_cast<JNIEnv *>(jenv)->ExceptionClear();
-    delete ch;
-  }
-  server->published_channels.clear();
-
-  if (static_cast<jobject>(server->advertise_callback)) {
-    auto advertiser = java_object_t<"android/bluetooth/le/BluetoothLeAdvertiser">(jenv, server->advertiser);
-    auto stop = advertiser.get_class().get_method<void(java_object_t<"android/bluetooth/le/AdvertiseCallback">)>("stopAdvertising");
-    stop(advertiser, java_object_t<"android/bluetooth/le/AdvertiseCallback">(jenv, static_cast<jobject>(server->advertise_callback)));
-    server->advertise_callback = {};
-  }
-
   auto gatt_server = java_object_t<"android/bluetooth/BluetoothGattServer">(jenv, server->gatt_server);
   auto close = gatt_server.get_class().get_method<void()>("close");
   close(gatt_server);
