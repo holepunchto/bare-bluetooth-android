@@ -119,6 +119,9 @@ struct bare_bluetooth_android_channel_t {
   std::atomic<bool> opened;
   std::atomic<bool> destroyed;
   std::atomic<bool> finalized;
+
+  bool exiting;
+  js_deferred_teardown_t *teardown;
 };
 
 typedef struct {
@@ -409,6 +412,11 @@ bare_bluetooth_android_channel__on_data(js_env_t *env, js_function_t<void, js_re
   auto *event = static_cast<bare_bluetooth_android_channel_data_t *>(data);
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
+  if (channel->exiting) {
+    delete event;
+    return;
+  }
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -432,6 +440,8 @@ bare_bluetooth_android_channel__on_drain(js_env_t *env, js_function_t<void, js_r
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
+  if (channel->exiting) return;
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -452,6 +462,8 @@ bare_bluetooth_android_channel__on_end(js_env_t *env, js_function_t<void, js_rec
   int err;
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
+
+  if (channel->exiting) return;
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -474,6 +486,11 @@ bare_bluetooth_android_channel__on_error(js_env_t *env, js_function_t<void, js_r
 
   auto *event = static_cast<bare_bluetooth_android_channel_error_t *>(data);
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
+
+  if (channel->exiting) {
+    delete event;
+    return;
+  }
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -498,19 +515,21 @@ bare_bluetooth_android_channel__on_close(js_env_t *env, js_function_t<void, js_r
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  js_handle_scope_t *scope;
-  err = js_open_handle_scope(env, &scope);
-  assert(err == 0);
+  if (!channel->exiting) {
+    js_handle_scope_t *scope;
+    err = js_open_handle_scope(env, &scope);
+    assert(err == 0);
 
-  js_value_t *receiver;
-  err = js_get_reference_value(env, channel->ctx, &receiver);
-  assert(err == 0);
+    js_value_t *receiver;
+    err = js_get_reference_value(env, channel->ctx, &receiver);
+    assert(err == 0);
 
-  err = js_call_function(env, function, js_receiver_t(receiver));
-  assert(err == 0);
+    err = js_call_function(env, function, js_receiver_t(receiver));
+    assert(err == 0);
 
-  err = js_close_handle_scope(env, scope);
-  assert(err == 0);
+    err = js_close_handle_scope(env, scope);
+    assert(err == 0);
+  }
 
   bool expected = false;
   if (channel->finalized.compare_exchange_strong(expected, true)) {
@@ -524,6 +543,9 @@ bare_bluetooth_android_channel__on_close(js_env_t *env, js_function_t<void, js_r
     err = js_delete_reference(env, channel->ctx);
     assert(err == 0);
 
+    err = js_finish_deferred_teardown_callback(channel->teardown);
+    assert(err == 0);
+
     delete channel;
   }
 }
@@ -533,6 +555,8 @@ bare_bluetooth_android_channel__on_open(js_env_t *env, js_function_t<void, js_re
   int err;
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
+
+  if (channel->exiting) return;
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -608,6 +632,9 @@ bare_bluetooth_android_on_l2cap_reader_close(java_env_t env, java_object_t<"to/h
   js_call_threadsafe_function(channel->tsfn_close);
 }
 
+static void
+bare_bluetooth_android_channel__on_teardown(js_deferred_teardown_t *handle, void *data);
+
 static js_external_t<bare_bluetooth_android_channel_t>
 bare_bluetooth_android_l2cap_init(
   js_env_t *env,
@@ -628,6 +655,7 @@ bare_bluetooth_android_l2cap_init(
   channel->opened = false;
   channel->destroyed = false;
   channel->finalized = false;
+  channel->exiting = false;
 
   delete socket_handle;
 
@@ -663,6 +691,9 @@ bare_bluetooth_android_l2cap_init(
 
   js_external_t<bare_bluetooth_android_channel_t> handle;
   err = js_create_external(env, channel, handle);
+  assert(err == 0);
+
+  err = js_add_deferred_teardown_callback(env, bare_bluetooth_android_channel__on_teardown, (void *) channel, &channel->teardown);
   assert(err == 0);
 
   return handle;
@@ -732,6 +763,13 @@ bare_bluetooth_android_l2cap_end(js_env_t *env, bare_bluetooth_android_channel_t
   auto close = socket.get_class().get_method<void()>("close");
   close(socket);
   static_cast<JNIEnv *>(jenv)->ExceptionClear();
+}
+
+static void
+bare_bluetooth_android_channel__on_teardown(js_deferred_teardown_t *handle, void *data) {
+  auto *channel = static_cast<bare_bluetooth_android_channel_t *>(data);
+  channel->exiting = true;
+  bare_bluetooth_android_l2cap_end(channel->env, channel);
 }
 
 static uint32_t
