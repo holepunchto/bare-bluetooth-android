@@ -186,6 +186,7 @@ struct bare_bluetooth_android_central_t {
   java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/GattCallback">> gatt_callback_ref;
 
   std::atomic<bool> destroyed;
+  std::mutex teardown_mutex;
   bool exiting;
   js_deferred_teardown_t *teardown;
 };
@@ -1216,15 +1217,26 @@ bare_bluetooth_android_central_disconnect(js_env_t *env, bare_bluetooth_android_
 
 static void
 bare_bluetooth_android_central__finalize(bare_bluetooth_android_central_t *central) {
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+
+  auto scan_cb = java_object_t<"to/holepunch/bare/bluetooth/ScanCallback">(jenv, central->scan_callback);
+  scan_cb.get_class().get_method<void()>("clearNativePointer")(scan_cb);
+
+  auto gatt_cb = java_object_t<"to/holepunch/bare/bluetooth/GattCallback">(jenv, central->gatt_callback_ref);
+  gatt_cb.get_class().get_method<void()>("clearNativePointer")(gatt_cb);
+
   int err = js_delete_reference(central->env, central->ctx);
   assert(err == 0);
 
-  js_release_threadsafe_function(central->tsfn_scan_fail, js_threadsafe_function_abort);
-  js_release_threadsafe_function(central->tsfn_connect_fail, js_threadsafe_function_abort);
-  js_release_threadsafe_function(central->tsfn_disconnect, js_threadsafe_function_abort);
-  js_release_threadsafe_function(central->tsfn_connect, js_threadsafe_function_abort);
-  js_release_threadsafe_function(central->tsfn_discover, js_threadsafe_function_abort);
-  js_release_threadsafe_function(central->tsfn_state_change, js_threadsafe_function_abort);
+  {
+    std::lock_guard<std::mutex> lock(central->teardown_mutex);
+    js_release_threadsafe_function(central->tsfn_scan_fail, js_threadsafe_function_abort);
+    js_release_threadsafe_function(central->tsfn_connect_fail, js_threadsafe_function_abort);
+    js_release_threadsafe_function(central->tsfn_disconnect, js_threadsafe_function_abort);
+    js_release_threadsafe_function(central->tsfn_connect, js_threadsafe_function_abort);
+    js_release_threadsafe_function(central->tsfn_discover, js_threadsafe_function_abort);
+    js_release_threadsafe_function(central->tsfn_state_change, js_threadsafe_function_abort);
+  }
 
   err = js_finish_deferred_teardown_callback(central->teardown);
   assert(err == 0);
@@ -1322,7 +1334,14 @@ bare_bluetooth_android_on_scan_result(java_env_t env, java_object_t<"to/holepunc
     event->name = {};
   }
 
-  js_call_threadsafe_function(central->tsfn_discover, event);
+  {
+    std::lock_guard<std::mutex> lock(central->teardown_mutex);
+    if (central->destroyed) {
+      delete event;
+      return;
+    }
+    js_call_threadsafe_function(central->tsfn_discover, event);
+  }
 }
 
 static void
@@ -1333,7 +1352,14 @@ bare_bluetooth_android_on_scan_failed(java_env_t env, java_object_t<"to/holepunc
   auto *event = new bare_bluetooth_android_central_scan_fail_t();
   event->error_code = error_code;
 
-  js_call_threadsafe_function(central->tsfn_scan_fail, event);
+  {
+    std::lock_guard<std::mutex> lock(central->teardown_mutex);
+    if (central->destroyed) {
+      delete event;
+      return;
+    }
+    js_call_threadsafe_function(central->tsfn_scan_fail, event);
+  }
 }
 
 static void
@@ -1352,7 +1378,14 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
     auto *event = new bare_bluetooth_android_central_connect_t();
     event->address = address;
 
-    js_call_threadsafe_function(central->tsfn_connect, event);
+    {
+      std::lock_guard<std::mutex> lock(central->teardown_mutex);
+      if (central->destroyed) {
+        delete event;
+        return;
+      }
+      js_call_threadsafe_function(central->tsfn_connect, event);
+    }
   } else if (new_state == 0) {
     bool was_connected;
     {
@@ -1372,7 +1405,14 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
         event->error = {};
       }
 
-      js_call_threadsafe_function(central->tsfn_disconnect, event);
+      {
+        std::lock_guard<std::mutex> lock(central->teardown_mutex);
+        if (central->destroyed) {
+          delete event;
+          return;
+        }
+        js_call_threadsafe_function(central->tsfn_disconnect, event);
+      }
     } else {
       auto *event = new bare_bluetooth_android_central_connect_fail_t();
       event->address = address;
@@ -1381,7 +1421,14 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
       snprintf(error_buf, sizeof(error_buf), "GATT error %d", status);
       event->error = error_buf;
 
-      js_call_threadsafe_function(central->tsfn_connect_fail, event);
+      {
+        std::lock_guard<std::mutex> lock(central->teardown_mutex);
+        if (central->destroyed) {
+          delete event;
+          return;
+        }
+        js_call_threadsafe_function(central->tsfn_connect_fail, event);
+      }
     }
   }
 }
