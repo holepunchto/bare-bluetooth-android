@@ -632,13 +632,6 @@ bare_bluetooth_android_on_l2cap_reader_close(java_env_t env, java_object_t<"to/h
   js_call_threadsafe_function(channel->tsfn_close);
 }
 
-static void
-bare_bluetooth_android_channel__on_teardown(js_deferred_teardown_t *handle, void *data) {
-  auto *channel = static_cast<bare_bluetooth_android_channel_t *>(data);
-  channel->exiting = true;
-  bare_bluetooth_android_l2cap_end(channel->env, channel);
-}
-
 static js_external_t<bare_bluetooth_android_channel_t>
 bare_bluetooth_android_l2cap_init(
   js_env_t *env,
@@ -767,6 +760,13 @@ bare_bluetooth_android_l2cap_end(js_env_t *env, bare_bluetooth_android_channel_t
   auto close = socket.get_class().get_method<void()>("close");
   close(socket);
   static_cast<JNIEnv *>(jenv)->ExceptionClear();
+}
+
+static void
+bare_bluetooth_android_channel__on_teardown(js_deferred_teardown_t *handle, void *data) {
+  auto *channel = static_cast<bare_bluetooth_android_channel_t *>(data);
+  channel->exiting = true;
+  bare_bluetooth_android_l2cap_end(channel->env, channel);
 }
 
 static uint32_t
