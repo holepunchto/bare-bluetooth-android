@@ -1330,7 +1330,12 @@ bare_bluetooth_android_on_scan_result(java_env_t env, java_object_t<"to/holepunc
     event->name = {};
   }
 
+  if (js_acquire_threadsafe_function(central->tsfn_discover) != 0) {
+    delete event;
+    return;
+  }
   js_call_threadsafe_function(central->tsfn_discover, event);
+  js_release_threadsafe_function(central->tsfn_discover, js_threadsafe_function_release);
 }
 
 static void
@@ -1341,7 +1346,12 @@ bare_bluetooth_android_on_scan_failed(java_env_t env, java_object_t<"to/holepunc
   auto *event = new bare_bluetooth_android_central_scan_fail_t();
   event->error_code = error_code;
 
+  if (js_acquire_threadsafe_function(central->tsfn_scan_fail) != 0) {
+    delete event;
+    return;
+  }
   js_call_threadsafe_function(central->tsfn_scan_fail, event);
+  js_release_threadsafe_function(central->tsfn_scan_fail, js_threadsafe_function_release);
 }
 
 static void
@@ -1360,7 +1370,12 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
     auto *event = new bare_bluetooth_android_central_connect_t();
     event->address = address;
 
+    if (js_acquire_threadsafe_function(central->tsfn_connect) != 0) {
+      delete event;
+      return;
+    }
     js_call_threadsafe_function(central->tsfn_connect, event);
+    js_release_threadsafe_function(central->tsfn_connect, js_threadsafe_function_release);
   } else if (new_state == 0) {
     bool was_connected;
     {
@@ -1380,7 +1395,12 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
         event->error = {};
       }
 
+      if (js_acquire_threadsafe_function(central->tsfn_disconnect) != 0) {
+        delete event;
+        return;
+      }
       js_call_threadsafe_function(central->tsfn_disconnect, event);
+      js_release_threadsafe_function(central->tsfn_disconnect, js_threadsafe_function_release);
     } else {
       auto *event = new bare_bluetooth_android_central_connect_fail_t();
       event->address = address;
@@ -1389,7 +1409,12 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
       snprintf(error_buf, sizeof(error_buf), "GATT error %d", status);
       event->error = error_buf;
 
+      if (js_acquire_threadsafe_function(central->tsfn_connect_fail) != 0) {
+        delete event;
+        return;
+      }
       js_call_threadsafe_function(central->tsfn_connect_fail, event);
+      js_release_threadsafe_function(central->tsfn_connect_fail, js_threadsafe_function_release);
     }
   }
 }
