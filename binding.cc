@@ -186,6 +186,7 @@ struct bare_bluetooth_android_central_t {
   java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/GattCallback">> gatt_callback_ref;
 
   std::atomic<bool> destroyed;
+  std::atomic<int> ref_count;
   bool exiting;
   js_deferred_teardown_t *teardown;
 };
@@ -1071,6 +1072,7 @@ bare_bluetooth_android_central_init(
   central->env = env;
   central->destroyed = false;
   central->exiting = false;
+  central->ref_count = 1;
 
   err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &central->ctx);
   assert(err == 0);
@@ -1156,8 +1158,12 @@ bare_bluetooth_android_central_start_scan(js_env_t *env, bare_bluetooth_android_
     filter_list = java_object_t<"java/util/List">(jenv, list);
   }
 
+  js_acquire_threadsafe_function(central->tsfn_discover);
+  js_acquire_threadsafe_function(central->tsfn_scan_fail);
+  central->ref_count++;
+
   auto callback_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/ScanCallback">();
-  auto callback_local = callback_class(reinterpret_cast<long>(central));
+  auto callback_local = callback_class(reinterpret_cast<long>(central), reinterpret_cast<long>(central->tsfn_discover), reinterpret_cast<long>(central->tsfn_scan_fail));
 
   central->scan_callback = java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/ScanCallback">>(jenv, callback_local);
 
@@ -1190,8 +1196,13 @@ bare_bluetooth_android_central_connect(js_env_t *env, bare_bluetooth_android_cen
   auto get_remote_device = adapter.get_class().get_method<java_object_t<"android/bluetooth/BluetoothDevice">(std::string)>("getRemoteDevice");
   auto device = get_remote_device(adapter, address);
 
+  js_acquire_threadsafe_function(central->tsfn_connect);
+  js_acquire_threadsafe_function(central->tsfn_disconnect);
+  js_acquire_threadsafe_function(central->tsfn_connect_fail);
+  central->ref_count++;
+
   auto gatt_callback_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattCallback">();
-  auto gatt_callback = gatt_callback_class(reinterpret_cast<long>(central));
+  auto gatt_callback = gatt_callback_class(reinterpret_cast<long>(central), reinterpret_cast<long>(central->tsfn_connect), reinterpret_cast<long>(central->tsfn_disconnect), reinterpret_cast<long>(central->tsfn_connect_fail));
 
   central->gatt_callback_ref = java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/GattCallback">>(jenv, gatt_callback);
 
@@ -1216,13 +1227,10 @@ bare_bluetooth_android_central_disconnect(js_env_t *env, bare_bluetooth_android_
 
 static void
 bare_bluetooth_android_central__finalize(bare_bluetooth_android_central_t *central) {
-  auto jenv = bare_bluetooth_android_jvm().get_env().value();
-
-  auto scan_cb = java_object_t<"to/holepunch/bare/bluetooth/ScanCallback">(jenv, central->scan_callback);
-  scan_cb.get_class().get_method<void()>("clearNativePointer")(scan_cb);
-
-  auto gatt_cb = java_object_t<"to/holepunch/bare/bluetooth/GattCallback">(jenv, central->gatt_callback_ref);
-  gatt_cb.get_class().get_method<void()>("clearNativePointer")(gatt_cb);
+  // Release Java global refs so GC can collect the callback objects and
+  // invoke their finalize(), which releases the acquired tsfn refs.
+  central->scan_callback = {};
+  central->gatt_callback_ref = {};
 
   int err = js_delete_reference(central->env, central->ctx);
   assert(err == 0);
@@ -1237,7 +1245,9 @@ bare_bluetooth_android_central__finalize(bare_bluetooth_android_central_t *centr
   err = js_finish_deferred_teardown_callback(central->teardown);
   assert(err == 0);
 
-  delete central;
+  if (--central->ref_count == 0) {
+    delete central;
+  }
 }
 
 static void
@@ -1330,12 +1340,7 @@ bare_bluetooth_android_on_scan_result(java_env_t env, java_object_t<"to/holepunc
     event->name = {};
   }
 
-  if (js_acquire_threadsafe_function(central->tsfn_discover) != 0) {
-    delete event;
-    return;
-  }
   js_call_threadsafe_function(central->tsfn_discover, event);
-  js_release_threadsafe_function(central->tsfn_discover, js_threadsafe_function_release);
 }
 
 static void
@@ -1346,12 +1351,7 @@ bare_bluetooth_android_on_scan_failed(java_env_t env, java_object_t<"to/holepunc
   auto *event = new bare_bluetooth_android_central_scan_fail_t();
   event->error_code = error_code;
 
-  if (js_acquire_threadsafe_function(central->tsfn_scan_fail) != 0) {
-    delete event;
-    return;
-  }
   js_call_threadsafe_function(central->tsfn_scan_fail, event);
-  js_release_threadsafe_function(central->tsfn_scan_fail, js_threadsafe_function_release);
 }
 
 static void
@@ -1370,12 +1370,7 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
     auto *event = new bare_bluetooth_android_central_connect_t();
     event->address = address;
 
-    if (js_acquire_threadsafe_function(central->tsfn_connect) != 0) {
-      delete event;
-      return;
-    }
     js_call_threadsafe_function(central->tsfn_connect, event);
-    js_release_threadsafe_function(central->tsfn_connect, js_threadsafe_function_release);
   } else if (new_state == 0) {
     bool was_connected;
     {
@@ -1395,12 +1390,7 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
         event->error = {};
       }
 
-      if (js_acquire_threadsafe_function(central->tsfn_disconnect) != 0) {
-        delete event;
-        return;
-      }
       js_call_threadsafe_function(central->tsfn_disconnect, event);
-      js_release_threadsafe_function(central->tsfn_disconnect, js_threadsafe_function_release);
     } else {
       auto *event = new bare_bluetooth_android_central_connect_fail_t();
       event->address = address;
@@ -1409,13 +1399,37 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
       snprintf(error_buf, sizeof(error_buf), "GATT error %d", status);
       event->error = error_buf;
 
-      if (js_acquire_threadsafe_function(central->tsfn_connect_fail) != 0) {
-        delete event;
-        return;
-      }
       js_call_threadsafe_function(central->tsfn_connect_fail, event);
-      js_release_threadsafe_function(central->tsfn_connect_fail, js_threadsafe_function_release);
     }
+  }
+}
+
+static void
+bare_bluetooth_android_on_scan_callback_finalize(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/ScanCallback"> self, long native_ptr, long tsfn_discover, long tsfn_scan_fail) {
+  (void) env;
+  (void) self;
+
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_discover), js_threadsafe_function_release);
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_scan_fail), js_threadsafe_function_release);
+
+  auto *central = reinterpret_cast<bare_bluetooth_android_central_t *>(native_ptr);
+  if (--central->ref_count == 0) {
+    delete central;
+  }
+}
+
+static void
+bare_bluetooth_android_on_gatt_callback_finalize(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattCallback"> self, long native_ptr, long tsfn_connect, long tsfn_disconnect, long tsfn_connect_fail) {
+  (void) env;
+  (void) self;
+
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_connect), js_threadsafe_function_release);
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_disconnect), js_threadsafe_function_release);
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_connect_fail), js_threadsafe_function_release);
+
+  auto *central = reinterpret_cast<bare_bluetooth_android_central_t *>(native_ptr);
+  if (--central->ref_count == 0) {
+    delete central;
   }
 }
 
@@ -3590,7 +3604,8 @@ bare_bluetooth_android_register_natives() {
       java_native_method_t<bare_bluetooth_android_on_characteristic_write>("nativeOnCharacteristicWrite"),
       java_native_method_t<bare_bluetooth_android_on_characteristic_changed>("nativeOnCharacteristicChanged"),
       java_native_method_t<bare_bluetooth_android_on_descriptor_write>("nativeOnDescriptorWrite"),
-      java_native_method_t<bare_bluetooth_android_on_mtu_changed>("nativeOnMtuChanged")
+      java_native_method_t<bare_bluetooth_android_on_mtu_changed>("nativeOnMtuChanged"),
+      java_native_method_t<bare_bluetooth_android_on_gatt_callback_finalize>("nativeOnFinalize")
     );
   }
 
@@ -3598,7 +3613,8 @@ bare_bluetooth_android_register_natives() {
     auto cls = loader.load_class<"to/holepunch/bare/bluetooth/ScanCallback">();
     cls.register_natives(
       java_native_method_t<bare_bluetooth_android_on_scan_result>("nativeOnScanResult"),
-      java_native_method_t<bare_bluetooth_android_on_scan_failed>("nativeOnScanFailed")
+      java_native_method_t<bare_bluetooth_android_on_scan_failed>("nativeOnScanFailed"),
+      java_native_method_t<bare_bluetooth_android_on_scan_callback_finalize>("nativeOnFinalize")
     );
   }
 

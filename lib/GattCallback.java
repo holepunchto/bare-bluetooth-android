@@ -8,23 +8,22 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class GattCallback extends android.bluetooth.BluetoothGattCallback {
-  private long nativePointer;
+  private final long nativePointer;
+  private final long tsfnConnect;
+  private final long tsfnDisconnect;
+  private final long tsfnConnectFail;
   private final Map<String, BluetoothGatt> connectedGatts = new ConcurrentHashMap<>();
 
-  public GattCallback(long nativePointer) {
+  public GattCallback(long nativePointer, long tsfnConnect, long tsfnDisconnect, long tsfnConnectFail) {
     this.nativePointer = nativePointer;
-  }
-
-  public synchronized void
-  clearNativePointer() {
-    this.nativePointer = 0;
+    this.tsfnConnect = tsfnConnect;
+    this.tsfnDisconnect = tsfnDisconnect;
+    this.tsfnConnectFail = tsfnConnectFail;
   }
 
   @Override
-  public synchronized void
+  public void
   onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-    if (nativePointer == 0) return;
-
     if (gatt != null && gatt.getDevice() != null) {
       String address = gatt.getDevice().getAddress();
 
@@ -44,45 +43,45 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
   }
 
   @Override
-  public synchronized void
+  public void
   onServicesDiscovered(BluetoothGatt gatt, int status) {
-    if (nativePointer == 0) return;
     nativeOnServicesDiscovered(nativePointer, gatt, status);
   }
 
   @Override
-  public synchronized void
+  public void
   onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value, int status) {
-    if (nativePointer == 0) return;
     nativeOnCharacteristicRead(nativePointer, gatt, characteristic, value, status);
   }
 
   @Override
-  public synchronized void
+  public void
   onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-    if (nativePointer == 0) return;
     nativeOnCharacteristicWrite(nativePointer, gatt, characteristic, status);
   }
 
   @Override
-  public synchronized void
+  public void
   onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value) {
-    if (nativePointer == 0) return;
     nativeOnCharacteristicChanged(nativePointer, gatt, characteristic, value);
   }
 
   @Override
-  public synchronized void
+  public void
   onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-    if (nativePointer == 0) return;
     nativeOnDescriptorWrite(nativePointer, gatt, descriptor, status);
   }
 
   @Override
-  public synchronized void
+  public void
   onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
-    if (nativePointer == 0) return;
     nativeOnMtuChanged(nativePointer, gatt, mtu, status);
+  }
+
+  @Override
+  protected void
+  finalize() {
+    nativeOnFinalize(nativePointer, tsfnConnect, tsfnDisconnect, tsfnConnectFail);
   }
 
   private static native void
@@ -105,4 +104,7 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
 
   private static native void
   nativeOnMtuChanged(long nativePointer, BluetoothGatt gatt, int mtu, int status);
+
+  private static native void
+  nativeOnFinalize(long nativePointer, long tsfnConnect, long tsfnDisconnect, long tsfnConnectFail);
 }
