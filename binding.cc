@@ -186,7 +186,6 @@ struct bare_bluetooth_android_central_t {
   java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/GattCallback">> gatt_callback_ref;
 
   std::atomic<bool> destroyed;
-  std::mutex teardown_mutex;
   bool exiting;
   js_deferred_teardown_t *teardown;
 };
@@ -1228,15 +1227,12 @@ bare_bluetooth_android_central__finalize(bare_bluetooth_android_central_t *centr
   int err = js_delete_reference(central->env, central->ctx);
   assert(err == 0);
 
-  {
-    std::lock_guard<std::mutex> lock(central->teardown_mutex);
-    js_release_threadsafe_function(central->tsfn_scan_fail, js_threadsafe_function_abort);
-    js_release_threadsafe_function(central->tsfn_connect_fail, js_threadsafe_function_abort);
-    js_release_threadsafe_function(central->tsfn_disconnect, js_threadsafe_function_abort);
-    js_release_threadsafe_function(central->tsfn_connect, js_threadsafe_function_abort);
-    js_release_threadsafe_function(central->tsfn_discover, js_threadsafe_function_abort);
-    js_release_threadsafe_function(central->tsfn_state_change, js_threadsafe_function_abort);
-  }
+  js_release_threadsafe_function(central->tsfn_scan_fail, js_threadsafe_function_abort);
+  js_release_threadsafe_function(central->tsfn_connect_fail, js_threadsafe_function_abort);
+  js_release_threadsafe_function(central->tsfn_disconnect, js_threadsafe_function_abort);
+  js_release_threadsafe_function(central->tsfn_connect, js_threadsafe_function_abort);
+  js_release_threadsafe_function(central->tsfn_discover, js_threadsafe_function_abort);
+  js_release_threadsafe_function(central->tsfn_state_change, js_threadsafe_function_abort);
 
   err = js_finish_deferred_teardown_callback(central->teardown);
   assert(err == 0);
@@ -1334,14 +1330,7 @@ bare_bluetooth_android_on_scan_result(java_env_t env, java_object_t<"to/holepunc
     event->name = {};
   }
 
-  {
-    std::lock_guard<std::mutex> lock(central->teardown_mutex);
-    if (central->destroyed) {
-      delete event;
-      return;
-    }
-    js_call_threadsafe_function(central->tsfn_discover, event);
-  }
+  js_call_threadsafe_function(central->tsfn_discover, event);
 }
 
 static void
@@ -1352,14 +1341,7 @@ bare_bluetooth_android_on_scan_failed(java_env_t env, java_object_t<"to/holepunc
   auto *event = new bare_bluetooth_android_central_scan_fail_t();
   event->error_code = error_code;
 
-  {
-    std::lock_guard<std::mutex> lock(central->teardown_mutex);
-    if (central->destroyed) {
-      delete event;
-      return;
-    }
-    js_call_threadsafe_function(central->tsfn_scan_fail, event);
-  }
+  js_call_threadsafe_function(central->tsfn_scan_fail, event);
 }
 
 static void
@@ -1378,14 +1360,7 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
     auto *event = new bare_bluetooth_android_central_connect_t();
     event->address = address;
 
-    {
-      std::lock_guard<std::mutex> lock(central->teardown_mutex);
-      if (central->destroyed) {
-        delete event;
-        return;
-      }
-      js_call_threadsafe_function(central->tsfn_connect, event);
-    }
+    js_call_threadsafe_function(central->tsfn_connect, event);
   } else if (new_state == 0) {
     bool was_connected;
     {
@@ -1405,14 +1380,7 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
         event->error = {};
       }
 
-      {
-        std::lock_guard<std::mutex> lock(central->teardown_mutex);
-        if (central->destroyed) {
-          delete event;
-          return;
-        }
-        js_call_threadsafe_function(central->tsfn_disconnect, event);
-      }
+      js_call_threadsafe_function(central->tsfn_disconnect, event);
     } else {
       auto *event = new bare_bluetooth_android_central_connect_fail_t();
       event->address = address;
@@ -1421,14 +1389,7 @@ bare_bluetooth_android_on_connection_state_change(java_env_t env, java_object_t<
       snprintf(error_buf, sizeof(error_buf), "GATT error %d", status);
       event->error = error_buf;
 
-      {
-        std::lock_guard<std::mutex> lock(central->teardown_mutex);
-        if (central->destroyed) {
-          delete event;
-          return;
-        }
-        js_call_threadsafe_function(central->tsfn_connect_fail, event);
-      }
+      js_call_threadsafe_function(central->tsfn_connect_fail, event);
     }
   }
 }
