@@ -3394,9 +3394,7 @@ static void
 bare_bluetooth_android_on_l2cap_acceptor_accepted(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/L2capAcceptor">, long native_ptr, int psm, int socket_id) {
   std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
   auto *server = bare_bluetooth_android_find_server(static_cast<uint64_t>(native_ptr));
-  if (server == nullptr) return;
-
-  if (server->exiting) return;
+  if (server == nullptr || server->exiting) return;
 
   auto *event = new bare_bluetooth_android_server_channel_open_t();
   event->socket_id = socket_id;
@@ -3410,9 +3408,7 @@ static void
 bare_bluetooth_android_on_l2cap_acceptor_error(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/L2capAcceptor">, long native_ptr, int psm, std::string error) {
   std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
   auto *server = bare_bluetooth_android_find_server(static_cast<uint64_t>(native_ptr));
-  if (server == nullptr) return;
-
-  if (server->exiting) return;
+  if (server == nullptr || server->exiting) return;
 
   auto *event = new bare_bluetooth_android_server_channel_open_t();
   event->socket_id = 0;
@@ -3798,9 +3794,7 @@ static void
 bare_bluetooth_android_on_advertise_failure(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/AdvertiseCallback">, long native_ptr, int error_code) {
   std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
   auto *server = bare_bluetooth_android_find_server(static_cast<uint64_t>(native_ptr));
-  if (server == nullptr) return;
-
-  if (server->exiting) return;
+  if (server == nullptr || server->exiting) return;
 
   const char *message;
   switch (error_code) {
