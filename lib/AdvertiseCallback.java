@@ -3,27 +3,27 @@ package to.holepunch.bare.bluetooth;
 import android.bluetooth.le.AdvertiseSettings;
 
 public final class AdvertiseCallback extends android.bluetooth.le.AdvertiseCallback {
-  private final long nativePointer;
+  private final long nativeId;
 
-  public AdvertiseCallback(long nativePointer) {
-    this.nativePointer = nativePointer;
+  public AdvertiseCallback(long nativeId) {
+    this.nativeId = nativeId;
   }
 
   @Override
   public void
   onStartSuccess(AdvertiseSettings settingsInEffect) {
-    nativeOnStartSuccess(nativePointer, settingsInEffect);
+    nativeOnStartSuccess(nativeId, settingsInEffect);
   }
 
   @Override
   public void
   onStartFailure(int errorCode) {
-    nativeOnStartFailure(nativePointer, errorCode);
+    nativeOnStartFailure(nativeId, errorCode);
   }
 
   private static native void
-  nativeOnStartSuccess(long nativePointer, AdvertiseSettings settingsInEffect);
+  nativeOnStartSuccess(long nativeId, AdvertiseSettings settingsInEffect);
 
   private static native void
-  nativeOnStartFailure(long nativePointer, int errorCode);
+  nativeOnStartFailure(long nativeId, int errorCode);
 }
