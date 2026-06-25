@@ -13,6 +13,7 @@ public final class L2capAcceptor implements Runnable {
   private final BluetoothServerSocket serverSocket;
   private final long nativePointer;
   private final int psm;
+  private long tsfnChannelOpen;
   private final AtomicInteger nextSocketId = new AtomicInteger(1);
   private final Map<Integer, BluetoothSocket> acceptedSockets = new ConcurrentHashMap<>();
   private volatile boolean stopped = false;
@@ -22,6 +23,11 @@ public final class L2capAcceptor implements Runnable {
     this.serverSocket = serverSocket;
     this.nativePointer = nativePointer;
     this.psm = psm;
+  }
+
+  public void
+  setTsfn(long tsfnChannelOpen) {
+    this.tsfnChannelOpen = tsfnChannelOpen;
   }
 
   public synchronized void
@@ -115,9 +121,18 @@ public final class L2capAcceptor implements Runnable {
       : prefix + ": " + message;
   }
 
+  @Override
+  protected void
+  finalize() {
+    nativeOnFinalize(nativePointer, tsfnChannelOpen);
+  }
+
   private static native void
   nativeOnAccepted(long nativePointer, int psm, int socketId);
 
   private static native void
   nativeOnError(long nativePointer, int psm, String error);
+
+  private static native void
+  nativeOnFinalize(long nativePointer, long tsfnChannelOpen);
 }
