@@ -9,29 +9,8 @@ import android.bluetooth.BluetoothGattService;
 public final class GattServerCallback extends android.bluetooth.BluetoothGattServerCallback {
   private final long nativePointer;
 
-  private long tsfnConnectionState;
-  private long tsfnAddService;
-  private long tsfnReadRequest;
-  private long tsfnWriteRequest;
-  private long tsfnDescriptorResponse;
-  private long tsfnSubscribe;
-  private long tsfnUnsubscribe;
-  private long tsfnNotifySent;
-
   public GattServerCallback(long nativePointer) {
     this.nativePointer = nativePointer;
-  }
-
-  public void
-  setTsfns(long tsfnConnectionState, long tsfnAddService, long tsfnReadRequest, long tsfnWriteRequest, long tsfnDescriptorResponse, long tsfnSubscribe, long tsfnUnsubscribe, long tsfnNotifySent) {
-    this.tsfnConnectionState = tsfnConnectionState;
-    this.tsfnAddService = tsfnAddService;
-    this.tsfnReadRequest = tsfnReadRequest;
-    this.tsfnWriteRequest = tsfnWriteRequest;
-    this.tsfnDescriptorResponse = tsfnDescriptorResponse;
-    this.tsfnSubscribe = tsfnSubscribe;
-    this.tsfnUnsubscribe = tsfnUnsubscribe;
-    this.tsfnNotifySent = tsfnNotifySent;
   }
 
   @Override
@@ -70,12 +49,6 @@ public final class GattServerCallback extends android.bluetooth.BluetoothGattSer
     nativeOnNotificationSent(nativePointer, device, status);
   }
 
-  @Override
-  protected void
-  finalize() {
-    nativeOnFinalize(nativePointer, tsfnConnectionState, tsfnAddService, tsfnReadRequest, tsfnWriteRequest, tsfnDescriptorResponse, tsfnSubscribe, tsfnUnsubscribe, tsfnNotifySent);
-  }
-
   private static native void
   nativeOnConnectionStateChange(long nativePointer, BluetoothDevice device, int status, int newState);
 
@@ -93,7 +66,4 @@ public final class GattServerCallback extends android.bluetooth.BluetoothGattSer
 
   private static native void
   nativeOnNotificationSent(long nativePointer, BluetoothDevice device, int status);
-
-  private static native void
-  nativeOnFinalize(long nativePointer, long tsfnConnectionState, long tsfnAddService, long tsfnReadRequest, long tsfnWriteRequest, long tsfnDescriptorResponse, long tsfnSubscribe, long tsfnUnsubscribe, long tsfnNotifySent);
 }
