@@ -1441,10 +1441,7 @@ bare_bluetooth_android_on_gatt_callback_finalize(java_env_t env, java_object_t<"
 }
 
 static void
-bare_bluetooth_android_on_peripheral_finalize(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattCallback"> self, long native_ptr, long tsfn_services_discover, long tsfn_characteristics_discover, long tsfn_read, long tsfn_write, long tsfn_notify, long tsfn_notify_state, long tsfn_mtu_changed) {
-  (void) env;
-  (void) self;
-
+bare_bluetooth_android_on_peripheral_finalize(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/GattCallback">, long native_ptr, long tsfn_services_discover, long tsfn_characteristics_discover, long tsfn_read, long tsfn_write, long tsfn_notify, long tsfn_notify_state, long tsfn_mtu_changed) {
   js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_services_discover), js_threadsafe_function_release);
   js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_characteristics_discover), js_threadsafe_function_release);
   js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_read), js_threadsafe_function_release);
