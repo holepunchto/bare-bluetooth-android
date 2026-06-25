@@ -14,6 +14,15 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
   private final long tsfnConnectFail;
   private final Map<String, BluetoothGatt> connectedGatts = new ConcurrentHashMap<>();
 
+  private long peripheralPointer;
+  private long tsfnServicesDiscover;
+  private long tsfnCharacteristicsDiscover;
+  private long tsfnRead;
+  private long tsfnWrite;
+  private long tsfnNotify;
+  private long tsfnNotifyState;
+  private long tsfnMtuChanged;
+
   public GattCallback(long nativePointer, long tsfnConnect, long tsfnDisconnect, long tsfnConnectFail) {
     this.nativePointer = nativePointer;
     this.tsfnConnect = tsfnConnect;
@@ -40,6 +49,18 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
   public BluetoothGatt
   takeConnectedGatt(String address) {
     return connectedGatts.remove(address);
+  }
+
+  public void
+  setPeripheralTsfns(long peripheralPointer, long tsfnServicesDiscover, long tsfnCharacteristicsDiscover, long tsfnRead, long tsfnWrite, long tsfnNotify, long tsfnNotifyState, long tsfnMtuChanged) {
+    this.peripheralPointer = peripheralPointer;
+    this.tsfnServicesDiscover = tsfnServicesDiscover;
+    this.tsfnCharacteristicsDiscover = tsfnCharacteristicsDiscover;
+    this.tsfnRead = tsfnRead;
+    this.tsfnWrite = tsfnWrite;
+    this.tsfnNotify = tsfnNotify;
+    this.tsfnNotifyState = tsfnNotifyState;
+    this.tsfnMtuChanged = tsfnMtuChanged;
   }
 
   @Override
@@ -82,6 +103,9 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
   protected void
   finalize() {
     nativeOnFinalize(nativePointer, tsfnConnect, tsfnDisconnect, tsfnConnectFail);
+    if (peripheralPointer != 0) {
+      nativeOnPeripheralFinalize(peripheralPointer, tsfnServicesDiscover, tsfnCharacteristicsDiscover, tsfnRead, tsfnWrite, tsfnNotify, tsfnNotifyState, tsfnMtuChanged);
+    }
   }
 
   private static native void
@@ -107,4 +131,7 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
 
   private static native void
   nativeOnFinalize(long nativePointer, long tsfnConnect, long tsfnDisconnect, long tsfnConnectFail);
+
+  private static native void
+  nativeOnPeripheralFinalize(long peripheralPointer, long tsfnServicesDiscover, long tsfnCharacteristicsDiscover, long tsfnRead, long tsfnWrite, long tsfnNotify, long tsfnNotifyState, long tsfnMtuChanged);
 }
