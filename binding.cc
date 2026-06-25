@@ -120,7 +120,6 @@ struct bare_bluetooth_android_channel_t {
   std::atomic<bool> destroyed;
   std::atomic<bool> finalized;
 
-  bool exiting;
   js_deferred_teardown_t *teardown;
 };
 
@@ -188,7 +187,7 @@ struct bare_bluetooth_android_central_t {
 
   std::atomic<bool> destroyed;
   std::atomic<int> ref_count;
-  bool exiting;
+
   js_deferred_teardown_t *teardown;
 };
 
@@ -259,7 +258,6 @@ struct bare_bluetooth_android_peripheral_t {
   bool l2cap_connecting;
   bare_bluetooth_android_peripheral_l2cap_open_req_t *l2cap_open;
 
-  bool exiting;
   js_deferred_teardown_t *teardown;
 };
 
@@ -314,7 +312,7 @@ struct bare_bluetooth_android_server_t {
   js_env_t *env;
   js_ref_t *ctx;
   std::atomic<bool> destroyed;
-  bool exiting;
+
   std::atomic<int> ref_count;
   js_deferred_teardown_t *teardown;
 
@@ -427,7 +425,7 @@ bare_bluetooth_android_channel__on_data(js_env_t *env, js_function_t<void, js_re
   auto *event = static_cast<bare_bluetooth_android_channel_data_t *>(data);
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (channel->exiting) {
+  if (channel->destroyed) {
     delete event;
     return;
   }
@@ -455,7 +453,7 @@ bare_bluetooth_android_channel__on_drain(js_env_t *env, js_function_t<void, js_r
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (channel->exiting) return;
+  if (channel->destroyed) return;
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -478,7 +476,7 @@ bare_bluetooth_android_channel__on_end(js_env_t *env, js_function_t<void, js_rec
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (channel->exiting) return;
+  if (channel->destroyed) return;
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -502,7 +500,7 @@ bare_bluetooth_android_channel__on_error(js_env_t *env, js_function_t<void, js_r
   auto *event = static_cast<bare_bluetooth_android_channel_error_t *>(data);
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (channel->exiting) {
+  if (channel->destroyed) {
     delete event;
     return;
   }
@@ -530,7 +528,7 @@ bare_bluetooth_android_channel__on_close(js_env_t *env, js_function_t<void, js_r
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (!channel->exiting) {
+  if (!channel->destroyed) {
     js_handle_scope_t *scope;
     err = js_open_handle_scope(env, &scope);
     assert(err == 0);
@@ -571,7 +569,7 @@ bare_bluetooth_android_channel__on_open(js_env_t *env, js_function_t<void, js_re
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (channel->exiting) return;
+  if (channel->destroyed) return;
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -656,7 +654,6 @@ bare_bluetooth_android_l2cap_init(
   channel->opened = false;
   channel->destroyed = false;
   channel->finalized = false;
-  channel->exiting = false;
 
   delete socket_handle;
 
@@ -769,7 +766,7 @@ bare_bluetooth_android_l2cap_end(js_env_t *env, bare_bluetooth_android_channel_t
 static void
 bare_bluetooth_android_channel__on_teardown(js_deferred_teardown_t *handle, void *data) {
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(data);
-  channel->exiting = true;
+
   bare_bluetooth_android_l2cap_end(channel->env, channel);
 }
 
@@ -792,7 +789,7 @@ bare_bluetooth_android_central__on_state_change(js_env_t *env, js_function_t<voi
   auto *event = static_cast<bare_bluetooth_android_central_state_change_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
-  if (central->exiting) {
+  if (central->destroyed) {
     delete event;
     return;
   }
@@ -821,7 +818,7 @@ bare_bluetooth_android_central__on_discover(js_env_t *env, js_function_t<void, j
   auto *event = static_cast<bare_bluetooth_android_central_discover_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
-  if (central->exiting) {
+  if (central->destroyed) {
     delete event;
     return;
   }
@@ -913,7 +910,7 @@ bare_bluetooth_android_central__on_connect(js_env_t *env, js_function_t<void, js
   auto *event = static_cast<bare_bluetooth_android_central_connect_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
-  if (central->exiting) {
+  if (central->destroyed) {
     delete event;
     return;
   }
@@ -960,7 +957,7 @@ bare_bluetooth_android_central__on_disconnect(js_env_t *env, js_function_t<void,
   auto *event = static_cast<bare_bluetooth_android_central_disconnect_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
-  if (central->exiting) {
+  if (central->destroyed) {
     delete event;
     return;
   }
@@ -998,7 +995,7 @@ bare_bluetooth_android_central__on_connect_fail(js_env_t *env, js_function_t<voi
   auto *event = static_cast<bare_bluetooth_android_central_connect_fail_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
-  if (central->exiting) {
+  if (central->destroyed) {
     delete event;
     return;
   }
@@ -1027,7 +1024,7 @@ bare_bluetooth_android_central__on_scan_fail(js_env_t *env, js_function_t<void, 
   auto *event = static_cast<bare_bluetooth_android_central_scan_fail_t *>(data);
   auto *central = static_cast<bare_bluetooth_android_central_t *>(context);
 
-  if (central->exiting) {
+  if (central->destroyed) {
     delete event;
     return;
   }
@@ -1068,7 +1065,7 @@ bare_bluetooth_android_central_init(
   auto *central = new bare_bluetooth_android_central_t();
   central->env = env;
   central->destroyed = false;
-  central->exiting = false;
+
   central->ref_count = 1;
 
   err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &central->ctx);
@@ -1250,7 +1247,6 @@ bare_bluetooth_android_central__finalize(bare_bluetooth_android_central_t *centr
 static void
 bare_bluetooth_android_central__on_teardown(js_deferred_teardown_t *handle, void *data) {
   auto *central = static_cast<bare_bluetooth_android_central_t *>(data);
-  central->exiting = true;
 
   bool expected = false;
   if (!central->destroyed.compare_exchange_strong(expected, true)) return;
@@ -1447,7 +1443,7 @@ bare_bluetooth_android_peripheral__on_services_discover(js_env_t *env, js_functi
   auto *event = static_cast<bare_bluetooth_android_peripheral_services_discover_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (peripheral->destroyed) {
     delete event;
     return;
   }
@@ -1520,7 +1516,7 @@ bare_bluetooth_android_peripheral__on_characteristics_discover(js_env_t *env, js
   auto *event = static_cast<bare_bluetooth_android_peripheral_characteristics_discover_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (peripheral->destroyed) {
     delete event;
     return;
   }
@@ -1601,7 +1597,7 @@ bare_bluetooth_android_peripheral__on_read(js_env_t *env, js_function_t<void, js
   auto *event = static_cast<bare_bluetooth_android_peripheral_read_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (peripheral->destroyed) {
     delete event;
     return;
   }
@@ -1668,7 +1664,7 @@ bare_bluetooth_android_peripheral__on_write(js_env_t *env, js_function_t<void, j
   auto *event = static_cast<bare_bluetooth_android_peripheral_write_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (peripheral->destroyed) {
     delete event;
     return;
   }
@@ -1722,7 +1718,7 @@ bare_bluetooth_android_peripheral__on_notify(js_env_t *env, js_function_t<void, 
   auto *event = static_cast<bare_bluetooth_android_peripheral_notify_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (peripheral->destroyed) {
     delete event;
     return;
   }
@@ -1775,7 +1771,7 @@ bare_bluetooth_android_peripheral__on_notify_state(js_env_t *env, js_function_t<
   auto *event = static_cast<bare_bluetooth_android_peripheral_notify_state_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (peripheral->destroyed) {
     delete event;
     return;
   }
@@ -1885,7 +1881,7 @@ bare_bluetooth_android_peripheral__on_mtu_changed(js_env_t *env, js_function_t<v
   auto *event = static_cast<bare_bluetooth_android_peripheral_mtu_changed_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (peripheral->destroyed) {
     delete event;
     return;
   }
@@ -1939,7 +1935,7 @@ bare_bluetooth_android_peripheral_init(
   peripheral->env = env;
   peripheral->destroyed = false;
   peripheral->released = false;
-  peripheral->exiting = false;
+
   peripheral->ref_count = 1;
   peripheral->l2cap_connecting = false;
   peripheral->l2cap_open = nullptr;
@@ -2386,7 +2382,6 @@ bare_bluetooth_android_peripheral_destroy(js_env_t *env, bare_bluetooth_android_
 static void
 bare_bluetooth_android_peripheral__on_teardown(js_deferred_teardown_t *handle, void *data) {
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(data);
-  peripheral->exiting = true;
 
   bool expected = false;
   if (!peripheral->destroyed.compare_exchange_strong(expected, true)) return;
@@ -2658,7 +2653,7 @@ bare_bluetooth_android_server__on_state_change(js_env_t *env, js_function_t<void
   auto *event = static_cast<bare_bluetooth_android_server_state_change_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -2687,7 +2682,7 @@ bare_bluetooth_android_server__on_add_service(js_env_t *env, js_function_t<void,
   auto *event = static_cast<bare_bluetooth_android_server_add_service_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -2736,7 +2731,7 @@ bare_bluetooth_android_server__on_read_request(js_env_t *env, js_function_t<void
   auto *event = static_cast<bare_bluetooth_android_server_read_request_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -2772,7 +2767,7 @@ bare_bluetooth_android_server__on_write_request(js_env_t *env, js_function_t<voi
   auto *event = static_cast<bare_bluetooth_android_server_write_request_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -2821,7 +2816,7 @@ bare_bluetooth_android_server__on_subscribe(js_env_t *env, js_function_t<void, j
   auto *event = static_cast<bare_bluetooth_android_server_subscribe_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -2852,7 +2847,7 @@ bare_bluetooth_android_server__on_unsubscribe(js_env_t *env, js_function_t<void,
   auto *event = static_cast<bare_bluetooth_android_server_unsubscribe_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -2883,7 +2878,7 @@ bare_bluetooth_android_server__on_advertise_error(js_env_t *env, js_function_t<v
   auto *event = static_cast<bare_bluetooth_android_server_advertise_error_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -2912,7 +2907,7 @@ bare_bluetooth_android_server__on_notify_sent(js_env_t *env, js_function_t<void,
   auto *event = static_cast<bare_bluetooth_android_server_notify_sent_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -2941,7 +2936,7 @@ bare_bluetooth_android_server__on_channel_publish(js_env_t *env, js_function_t<v
   auto *event = static_cast<bare_bluetooth_android_server_channel_publish_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -2979,7 +2974,7 @@ bare_bluetooth_android_server__on_channel_open(js_env_t *env, js_function_t<void
   auto *event = static_cast<bare_bluetooth_android_server_channel_open_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -3057,7 +3052,7 @@ bare_bluetooth_android_server__on_connection_state(js_env_t *env, js_function_t<
   auto *event = static_cast<bare_bluetooth_android_server_connection_state_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -3080,7 +3075,7 @@ bare_bluetooth_android_server__on_descriptor_response(js_env_t *env, js_function
   auto *event = static_cast<bare_bluetooth_android_server_descriptor_response_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
-  if (server->exiting) {
+  if (server->destroyed) {
     delete event;
     return;
   }
@@ -3129,7 +3124,7 @@ bare_bluetooth_android_server_init(
   auto *server = new bare_bluetooth_android_server_t();
   server->env = env;
   server->destroyed = false;
-  server->exiting = false;
+
   server->ref_count = 1;
 
   err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &server->ctx);
@@ -3549,7 +3544,6 @@ bare_bluetooth_android_server_destroy(js_env_t *env, bare_bluetooth_android_serv
 static void
 bare_bluetooth_android_server__on_teardown(js_deferred_teardown_t *handle, void *data) {
   auto *server = static_cast<bare_bluetooth_android_server_t *>(data);
-  server->exiting = true;
 
   bool expected = false;
   if (!server->destroyed.compare_exchange_strong(expected, true)) return;
