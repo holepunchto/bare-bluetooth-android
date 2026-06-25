@@ -3409,11 +3409,10 @@ bare_bluetooth_android_server_update_value(js_env_t *env, bare_bluetooth_android
 }
 
 static void
-bare_bluetooth_android_on_l2cap_acceptor_accepted(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/L2capAcceptor"> self, long native_ptr, int psm, int socket_id) {
-  (void) env;
-  (void) self;
-
+bare_bluetooth_android_on_l2cap_acceptor_accepted(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/L2capAcceptor">, long native_ptr, int psm, int socket_id) {
   auto *server = reinterpret_cast<bare_bluetooth_android_server_t *>(native_ptr);
+
+  if (server->exiting) return;
 
   auto *event = new bare_bluetooth_android_server_channel_open_t();
   event->socket_id = socket_id;
@@ -3424,11 +3423,10 @@ bare_bluetooth_android_on_l2cap_acceptor_accepted(java_env_t env, java_object_t<
 }
 
 static void
-bare_bluetooth_android_on_l2cap_acceptor_error(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/L2capAcceptor"> self, long native_ptr, int psm, std::string error) {
-  (void) env;
-  (void) self;
-
+bare_bluetooth_android_on_l2cap_acceptor_error(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/L2capAcceptor">, long native_ptr, int psm, std::string error) {
   auto *server = reinterpret_cast<bare_bluetooth_android_server_t *>(native_ptr);
+
+  if (server->exiting) return;
 
   auto *event = new bare_bluetooth_android_server_channel_open_t();
   event->socket_id = 0;
@@ -3476,6 +3474,14 @@ bare_bluetooth_android_server_publish_channel(js_env_t *env, bare_bluetooth_andr
   auto acceptor_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/L2capAcceptor">();
   auto acceptor = acceptor_class(server_socket_local, reinterpret_cast<long>(server), psm);
   ch->acceptor = java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/L2capAcceptor">>(jenv, acceptor);
+
+  js_acquire_threadsafe_function(server->tsfn_channel_open);
+  server->ref_count++;
+
+  {
+    auto set_tsfn = acceptor.get_class().get_method<void(long)>("setTsfn");
+    set_tsfn(acceptor, reinterpret_cast<long>(server->tsfn_channel_open));
+  }
 
   server->published_channels.push_back(ch);
 
@@ -3665,6 +3671,16 @@ bare_bluetooth_android_on_gatt_server_callback_finalize(java_env_t, java_object_
   js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_subscribe), js_threadsafe_function_release);
   js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_unsubscribe), js_threadsafe_function_release);
   js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_notify_sent), js_threadsafe_function_release);
+
+  auto *server = reinterpret_cast<bare_bluetooth_android_server_t *>(native_ptr);
+  if (--server->ref_count == 0) {
+    delete server;
+  }
+}
+
+static void
+bare_bluetooth_android_on_l2cap_acceptor_finalize(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/L2capAcceptor">, long native_ptr, long tsfn_channel_open) {
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_channel_open), js_threadsafe_function_release);
 
   auto *server = reinterpret_cast<bare_bluetooth_android_server_t *>(native_ptr);
   if (--server->ref_count == 0) {
@@ -3936,7 +3952,8 @@ bare_bluetooth_android_register_natives() {
     auto cls = loader.load_class<"to/holepunch/bare/bluetooth/L2capAcceptor">();
     cls.register_natives(
       java_native_method_t<bare_bluetooth_android_on_l2cap_acceptor_accepted>("nativeOnAccepted"),
-      java_native_method_t<bare_bluetooth_android_on_l2cap_acceptor_error>("nativeOnError")
+      java_native_method_t<bare_bluetooth_android_on_l2cap_acceptor_error>("nativeOnError"),
+      java_native_method_t<bare_bluetooth_android_on_l2cap_acceptor_finalize>("nativeOnFinalize")
     );
   }
 }
