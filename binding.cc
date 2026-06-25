@@ -3335,6 +3335,14 @@ bare_bluetooth_android_server_start_advertising(js_env_t *env, bare_bluetooth_an
   auto adv_callback = adv_callback_class(reinterpret_cast<long>(server));
   server->advertise_callback = java_global_ref_t<java_object_t<"android/bluetooth/le/AdvertiseCallback">>(jenv, adv_callback);
 
+  js_acquire_threadsafe_function(server->tsfn_advertise_error);
+  server->ref_count++;
+
+  {
+    auto set_tsfn = adv_callback.get_class().get_method<void(long)>("setTsfn");
+    set_tsfn(adv_callback, reinterpret_cast<long>(server->tsfn_advertise_error));
+  }
+
   auto advertiser = java_object_t<"android/bluetooth/le/BluetoothLeAdvertiser">(jenv, server->advertiser);
   auto start_advertising = advertiser.get_class().get_method<void(java_object_t<"android/bluetooth/le/AdvertiseSettings">, java_object_t<"android/bluetooth/le/AdvertiseData">, java_object_t<"android/bluetooth/le/AdvertiseCallback">)>("startAdvertising");
   start_advertising(advertiser, settings, adv_data, java_object_t<"android/bluetooth/le/AdvertiseCallback">(jenv, server->advertise_callback));
@@ -3665,6 +3673,16 @@ bare_bluetooth_android_on_gatt_server_callback_finalize(java_env_t, java_object_
 }
 
 static void
+bare_bluetooth_android_on_advertise_callback_finalize(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/AdvertiseCallback">, long native_ptr, long tsfn_advertise_error) {
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_advertise_error), js_threadsafe_function_release);
+
+  auto *server = reinterpret_cast<bare_bluetooth_android_server_t *>(native_ptr);
+  if (--server->ref_count == 0) {
+    delete server;
+  }
+}
+
+static void
 bare_bluetooth_android_on_server_connection_state_change(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattServerCallback"> self, long native_ptr, java_object_t<"android/bluetooth/BluetoothDevice"> device, int status, int new_state) {
   auto *server = reinterpret_cast<bare_bluetooth_android_server_t *>(native_ptr);
 
@@ -3793,15 +3811,14 @@ bare_bluetooth_android_on_descriptor_write_request(java_env_t env, java_object_t
 }
 
 static void
-bare_bluetooth_android_on_advertise_success(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/AdvertiseCallback"> self, long native_ptr, java_object_t<"android/bluetooth/le/AdvertiseSettings"> settings) {
-  (void) env;
-  (void) native_ptr;
-  (void) settings;
+bare_bluetooth_android_on_advertise_success(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/AdvertiseCallback">, long, java_object_t<"android/bluetooth/le/AdvertiseSettings">) {
 }
 
 static void
-bare_bluetooth_android_on_advertise_failure(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/AdvertiseCallback"> self, long native_ptr, int error_code) {
+bare_bluetooth_android_on_advertise_failure(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/AdvertiseCallback">, long native_ptr, int error_code) {
   auto *server = reinterpret_cast<bare_bluetooth_android_server_t *>(native_ptr);
+
+  if (server->exiting) return;
 
   const char *message;
   switch (error_code) {
@@ -3892,7 +3909,8 @@ bare_bluetooth_android_register_natives() {
     auto cls = loader.load_class<"to/holepunch/bare/bluetooth/AdvertiseCallback">();
     cls.register_natives(
       java_native_method_t<bare_bluetooth_android_on_advertise_success>("nativeOnStartSuccess"),
-      java_native_method_t<bare_bluetooth_android_on_advertise_failure>("nativeOnStartFailure")
+      java_native_method_t<bare_bluetooth_android_on_advertise_failure>("nativeOnStartFailure"),
+      java_native_method_t<bare_bluetooth_android_on_advertise_callback_finalize>("nativeOnFinalize")
     );
   }
 
