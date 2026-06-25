@@ -138,6 +138,7 @@ struct bare_bluetooth_android_device_handle_t {
 
 struct bare_bluetooth_android_gatt_handle_t {
   java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGatt">> handle;
+  java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/GattCallback">> gatt_callback;
 };
 
 struct bare_bluetooth_android_characteristic_handle_t {
@@ -235,7 +236,7 @@ struct bare_bluetooth_android_peripheral_l2cap_open_req_t;
 struct bare_bluetooth_android_peripheral_t {
   js_env_t *env;
   js_ref_t *ctx;
-  bool destroyed;
+  std::atomic<bool> destroyed;
   bool released;
 
   js_threadsafe_function_t *tsfn_services_discover;
@@ -253,8 +254,13 @@ struct bare_bluetooth_android_peripheral_t {
   std::vector<java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGattService">>> services;
   std::vector<std::vector<java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGattCharacteristic">>>> service_characteristics;
 
+  std::atomic<int> ref_count;
+
   bool l2cap_connecting;
   bare_bluetooth_android_peripheral_l2cap_open_req_t *l2cap_open;
+
+  bool exiting;
+  js_deferred_teardown_t *teardown;
 };
 
 typedef struct {
@@ -938,7 +944,8 @@ bare_bluetooth_android_central__on_connect(js_env_t *env, js_function_t<void, js
   assert(static_cast<jobject>(gatt) != nullptr);
 
   auto *gatt_handle = new bare_bluetooth_android_gatt_handle_t{
-    java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGatt">>(jenv, gatt)
+    java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGatt">>(jenv, gatt),
+    java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/GattCallback">>(jenv, callback)
   };
 
   js_external_t<bare_bluetooth_android_gatt_handle_t> ext;
@@ -1434,11 +1441,32 @@ bare_bluetooth_android_on_gatt_callback_finalize(java_env_t env, java_object_t<"
 }
 
 static void
+bare_bluetooth_android_on_peripheral_finalize(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/GattCallback">, long native_ptr, long tsfn_services_discover, long tsfn_characteristics_discover, long tsfn_read, long tsfn_write, long tsfn_notify, long tsfn_notify_state, long tsfn_mtu_changed) {
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_services_discover), js_threadsafe_function_release);
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_characteristics_discover), js_threadsafe_function_release);
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_read), js_threadsafe_function_release);
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_write), js_threadsafe_function_release);
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_notify), js_threadsafe_function_release);
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_notify_state), js_threadsafe_function_release);
+  js_release_threadsafe_function(reinterpret_cast<js_threadsafe_function_t *>(tsfn_mtu_changed), js_threadsafe_function_release);
+
+  auto *peripheral = reinterpret_cast<bare_bluetooth_android_peripheral_t *>(native_ptr);
+  if (--peripheral->ref_count == 0) {
+    delete peripheral;
+  }
+}
+
+static void
 bare_bluetooth_android_peripheral__on_services_discover(js_env_t *env, js_function_t<void, js_receiver_t, uint32_t, js_handle_t> function, bare_bluetooth_android_peripheral_t *context, bare_bluetooth_android_peripheral_services_discover_t *data) {
   int err;
 
   auto *event = static_cast<bare_bluetooth_android_peripheral_services_discover_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
+
+  if (peripheral->exiting) {
+    delete event;
+    return;
+  }
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -1507,6 +1535,11 @@ bare_bluetooth_android_peripheral__on_characteristics_discover(js_env_t *env, js
 
   auto *event = static_cast<bare_bluetooth_android_peripheral_characteristics_discover_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
+
+  if (peripheral->exiting) {
+    delete event;
+    return;
+  }
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -1584,6 +1617,11 @@ bare_bluetooth_android_peripheral__on_read(js_env_t *env, js_function_t<void, js
   auto *event = static_cast<bare_bluetooth_android_peripheral_read_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
+  if (peripheral->exiting) {
+    delete event;
+    return;
+  }
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -1646,6 +1684,11 @@ bare_bluetooth_android_peripheral__on_write(js_env_t *env, js_function_t<void, j
   auto *event = static_cast<bare_bluetooth_android_peripheral_write_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
+  if (peripheral->exiting) {
+    delete event;
+    return;
+  }
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -1695,6 +1738,11 @@ bare_bluetooth_android_peripheral__on_notify(js_env_t *env, js_function_t<void, 
   auto *event = static_cast<bare_bluetooth_android_peripheral_notify_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
+  if (peripheral->exiting) {
+    delete event;
+    return;
+  }
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -1742,6 +1790,11 @@ bare_bluetooth_android_peripheral__on_notify_state(js_env_t *env, js_function_t<
 
   auto *event = static_cast<bare_bluetooth_android_peripheral_notify_state_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
+
+  if (peripheral->exiting) {
+    delete event;
+    return;
+  }
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -1848,6 +1901,11 @@ bare_bluetooth_android_peripheral__on_mtu_changed(js_env_t *env, js_function_t<v
   auto *event = static_cast<bare_bluetooth_android_peripheral_mtu_changed_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
+  if (peripheral->exiting) {
+    delete event;
+    return;
+  }
+
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
   assert(err == 0);
@@ -1874,6 +1932,9 @@ bare_bluetooth_android_peripheral__on_mtu_changed(js_env_t *env, js_function_t<v
   assert(err == 0);
 }
 
+static void
+bare_bluetooth_android_peripheral__on_teardown(js_deferred_teardown_t *handle, void *data);
+
 static js_external_t<bare_bluetooth_android_peripheral_t>
 bare_bluetooth_android_peripheral_init(
   js_env_t *env,
@@ -1894,6 +1955,8 @@ bare_bluetooth_android_peripheral_init(
   peripheral->env = env;
   peripheral->destroyed = false;
   peripheral->released = false;
+  peripheral->exiting = false;
+  peripheral->ref_count = 1;
   peripheral->l2cap_connecting = false;
   peripheral->l2cap_open = nullptr;
 
@@ -1936,6 +1999,24 @@ bare_bluetooth_android_peripheral_init(
   assert(err == 0);
 
   err = js_create_threadsafe_function<bare_bluetooth_android_peripheral__on_mtu_changed, bare_bluetooth_android_peripheral_t, bare_bluetooth_android_peripheral_mtu_changed_t>(env, on_mtu_changed, 0, 1, peripheral, peripheral->tsfn_mtu_changed);
+  assert(err == 0);
+
+  js_acquire_threadsafe_function(peripheral->tsfn_services_discover);
+  js_acquire_threadsafe_function(peripheral->tsfn_characteristics_discover);
+  js_acquire_threadsafe_function(peripheral->tsfn_read);
+  js_acquire_threadsafe_function(peripheral->tsfn_write);
+  js_acquire_threadsafe_function(peripheral->tsfn_notify);
+  js_acquire_threadsafe_function(peripheral->tsfn_notify_state);
+  js_acquire_threadsafe_function(peripheral->tsfn_mtu_changed);
+  peripheral->ref_count++;
+
+  {
+    auto gatt_callback = java_object_t<"to/holepunch/bare/bluetooth/GattCallback">(jenv, gatt_handle->gatt_callback);
+    auto set_peripheral_tsfns = gatt_callback.get_class().get_method<void(long, long, long, long, long, long, long, long)>("setPeripheralTsfns");
+    set_peripheral_tsfns(gatt_callback, reinterpret_cast<long>(peripheral), reinterpret_cast<long>(peripheral->tsfn_services_discover), reinterpret_cast<long>(peripheral->tsfn_characteristics_discover), reinterpret_cast<long>(peripheral->tsfn_read), reinterpret_cast<long>(peripheral->tsfn_write), reinterpret_cast<long>(peripheral->tsfn_notify), reinterpret_cast<long>(peripheral->tsfn_notify_state), reinterpret_cast<long>(peripheral->tsfn_mtu_changed));
+  }
+
+  err = js_add_deferred_teardown_callback(env, bare_bluetooth_android_peripheral__on_teardown, (void *) peripheral, &peripheral->teardown);
   assert(err == 0);
 
   js_external_t<bare_bluetooth_android_peripheral_t> handle;
@@ -2158,7 +2239,13 @@ bare_bluetooth_android_peripheral__on_l2cap_open_complete(js_env_t *env, js_func
     js_release_threadsafe_function(req->tsfn_complete, js_threadsafe_function_abort);
     delete req;
     delete event;
-    delete peripheral;
+
+    int err = js_finish_deferred_teardown_callback(peripheral->teardown);
+    assert(err == 0);
+
+    if (--peripheral->ref_count == 0) {
+      delete peripheral;
+    }
 
     return;
   }
@@ -2287,6 +2374,11 @@ bare_bluetooth_android_peripheral_release(bare_bluetooth_android_peripheral_t *p
 
   peripheral->on_channel_open.reset();
 
+  // Release global refs so BluetoothGatt can be GC'd, which allows GattCallback
+  // to be GC'd and its finalize() to run
+  peripheral->gatt = {};
+  peripheral->device = {};
+
   js_release_threadsafe_function(peripheral->tsfn_mtu_changed, js_threadsafe_function_abort);
   js_release_threadsafe_function(peripheral->tsfn_notify_state, js_threadsafe_function_abort);
   js_release_threadsafe_function(peripheral->tsfn_notify, js_threadsafe_function_abort);
@@ -2298,14 +2390,39 @@ bare_bluetooth_android_peripheral_release(bare_bluetooth_android_peripheral_t *p
 
 static void
 bare_bluetooth_android_peripheral_destroy(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral) {
-  if (peripheral->destroyed) return;
-  peripheral->destroyed = true;
+  bool expected = false;
+  if (!peripheral->destroyed.compare_exchange_strong(expected, true)) return;
 
   bare_bluetooth_android_peripheral_release(peripheral);
 
   if (peripheral->l2cap_connecting) return;
 
-  delete peripheral;
+  int err = js_finish_deferred_teardown_callback(peripheral->teardown);
+  assert(err == 0);
+
+  if (--peripheral->ref_count == 0) {
+    delete peripheral;
+  }
+}
+
+static void
+bare_bluetooth_android_peripheral__on_teardown(js_deferred_teardown_t *handle, void *data) {
+  auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(data);
+  peripheral->exiting = true;
+
+  bool expected = false;
+  if (!peripheral->destroyed.compare_exchange_strong(expected, true)) return;
+
+  bare_bluetooth_android_peripheral_release(peripheral);
+
+  if (peripheral->l2cap_connecting) return;
+
+  int err = js_finish_deferred_teardown_callback(peripheral->teardown);
+  assert(err == 0);
+
+  if (--peripheral->ref_count == 0) {
+    delete peripheral;
+  }
 }
 
 static uint32_t
@@ -3605,7 +3722,8 @@ bare_bluetooth_android_register_natives() {
       java_native_method_t<bare_bluetooth_android_on_characteristic_changed>("nativeOnCharacteristicChanged"),
       java_native_method_t<bare_bluetooth_android_on_descriptor_write>("nativeOnDescriptorWrite"),
       java_native_method_t<bare_bluetooth_android_on_mtu_changed>("nativeOnMtuChanged"),
-      java_native_method_t<bare_bluetooth_android_on_gatt_callback_finalize>("nativeOnFinalize")
+      java_native_method_t<bare_bluetooth_android_on_gatt_callback_finalize>("nativeOnFinalize"),
+      java_native_method_t<bare_bluetooth_android_on_peripheral_finalize>("nativeOnPeripheralFinalize")
     );
   }
 
