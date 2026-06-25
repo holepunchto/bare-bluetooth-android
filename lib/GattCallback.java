@@ -9,10 +9,16 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class GattCallback extends android.bluetooth.BluetoothGattCallback {
   private final long nativePointer;
+  private final long tsfnConnect;
+  private final long tsfnDisconnect;
+  private final long tsfnConnectFail;
   private final Map<String, BluetoothGatt> connectedGatts = new ConcurrentHashMap<>();
 
-  public GattCallback(long nativePointer) {
+  public GattCallback(long nativePointer, long tsfnConnect, long tsfnDisconnect, long tsfnConnectFail) {
     this.nativePointer = nativePointer;
+    this.tsfnConnect = tsfnConnect;
+    this.tsfnDisconnect = tsfnDisconnect;
+    this.tsfnConnectFail = tsfnConnectFail;
   }
 
   @Override
@@ -72,6 +78,12 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
     nativeOnMtuChanged(nativePointer, gatt, mtu, status);
   }
 
+  @Override
+  protected void
+  finalize() {
+    nativeOnFinalize(nativePointer, tsfnConnect, tsfnDisconnect, tsfnConnectFail);
+  }
+
   private static native void
   nativeOnConnectionStateChange(long nativePointer, BluetoothGatt gatt, int status, int newState);
 
@@ -92,4 +104,7 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
 
   private static native void
   nativeOnMtuChanged(long nativePointer, BluetoothGatt gatt, int mtu, int status);
+
+  private static native void
+  nativeOnFinalize(long nativePointer, long tsfnConnect, long tsfnDisconnect, long tsfnConnectFail);
 }
