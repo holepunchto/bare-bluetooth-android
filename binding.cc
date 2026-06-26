@@ -318,8 +318,7 @@ struct bare_bluetooth_android_server_t {
   bool exiting;
   // Stable identity handed to the Java callbacks instead of a raw pointer.
   // Inbound callbacks resolve this id against the registry, so the native side
-  // owns every threadsafe-function ref outright and frees deterministically —
-  // no ref_count reconciled against Java finalize().
+  // owns every threadsafe-function ref outright and frees deterministically.
   uint64_t id;
   js_deferred_teardown_t *teardown;
 
