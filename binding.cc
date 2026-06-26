@@ -3561,9 +3561,9 @@ bare_bluetooth_android_server__on_teardown(js_deferred_teardown_t *handle, void 
   bool expected = false;
   if (!server->destroyed.compare_exchange_strong(expected, true)) return;
 
-  // Set exiting and erase under the same lock the inbound callbacks read it
-  // under, so a callback either sees exiting=true (and bails) or fails the
-  // id lookup — never a torn read of exiting across threads.
+  // Both the set and the erase happen under the lock the callbacks
+  // read exiting under, so a callback either sees exiting=true (and bails)
+  // or fails the id lookup: never a torn read across threads.
   {
     std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
     server->exiting = true;
