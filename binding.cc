@@ -3641,9 +3641,6 @@ bare_bluetooth_android_service_set_characteristics(js_env_t *env, bare_bluetooth
   }
 }
 
-// The GattServerCallback / L2capAcceptor / AdvertiseCallback finalize handlers
-// are gone: the native side owns every tsfn ref and releases it in
-// server_release(), so there is no Java-GC-driven release to reconcile.
 
 static void
 bare_bluetooth_android_on_server_connection_state_change(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattServerCallback"> self, long native_ptr, java_object_t<"android/bluetooth/BluetoothDevice"> device, int status, int new_state) {
