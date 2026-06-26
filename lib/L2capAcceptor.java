@@ -11,23 +11,17 @@ public final class L2capAcceptor implements Runnable {
   private static final long JOIN_TIMEOUT_MS = 1000;
 
   private final BluetoothServerSocket serverSocket;
-  private final long nativePointer;
+  private final long nativeId;
   private final int psm;
-  private long tsfnChannelOpen;
   private final AtomicInteger nextSocketId = new AtomicInteger(1);
   private final Map<Integer, BluetoothSocket> acceptedSockets = new ConcurrentHashMap<>();
   private volatile boolean stopped = false;
   private Thread thread;
 
-  public L2capAcceptor(BluetoothServerSocket serverSocket, long nativePointer, int psm) {
+  public L2capAcceptor(BluetoothServerSocket serverSocket, long nativeId, int psm) {
     this.serverSocket = serverSocket;
-    this.nativePointer = nativePointer;
+    this.nativeId = nativeId;
     this.psm = psm;
-  }
-
-  public void
-  setTsfn(long tsfnChannelOpen) {
-    this.tsfnChannelOpen = tsfnChannelOpen;
   }
 
   public synchronized void
@@ -46,7 +40,7 @@ public final class L2capAcceptor implements Runnable {
     try {
       serverSocket.close();
     } catch (IOException | RuntimeException e) {
-      nativeOnError(nativePointer, psm, errorMessage("L2CAP accept close failed", e));
+      nativeOnError(nativeId, psm, errorMessage("L2CAP accept close failed", e));
     }
 
     Thread t = thread;
@@ -93,10 +87,10 @@ public final class L2capAcceptor implements Runnable {
           break;
         }
 
-        nativeOnAccepted(nativePointer, psm, id);
+        nativeOnAccepted(nativeId, psm, id);
       } catch (IOException | RuntimeException e) {
         if (!stopped) {
-          nativeOnError(nativePointer, psm, errorMessage("L2CAP accept failed", e));
+          nativeOnError(nativeId, psm, errorMessage("L2CAP accept failed", e));
         }
 
         break;
@@ -109,7 +103,7 @@ public final class L2capAcceptor implements Runnable {
     try {
       socket.close();
     } catch (IOException | RuntimeException e) {
-      nativeOnError(nativePointer, psm, errorMessage("Accepted L2CAP socket close failed", e));
+      nativeOnError(nativeId, psm, errorMessage("Accepted L2CAP socket close failed", e));
     }
   }
 
@@ -121,18 +115,9 @@ public final class L2capAcceptor implements Runnable {
       : prefix + ": " + message;
   }
 
-  @Override
-  protected void
-  finalize() {
-    nativeOnFinalize(nativePointer, tsfnChannelOpen);
-  }
+  private static native void
+  nativeOnAccepted(long nativeId, int psm, int socketId);
 
   private static native void
-  nativeOnAccepted(long nativePointer, int psm, int socketId);
-
-  private static native void
-  nativeOnError(long nativePointer, int psm, String error);
-
-  private static native void
-  nativeOnFinalize(long nativePointer, long tsfnChannelOpen);
+  nativeOnError(long nativeId, int psm, String error);
 }
