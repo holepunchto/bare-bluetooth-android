@@ -115,6 +115,8 @@ struct bare_bluetooth_android_channel_t {
 
   int psm;
   std::string peer_address;
+  // Stable id handed to the Java reader, resolved against the registry.
+  uint64_t id;
   std::atomic<bool> opened;
   std::atomic<bool> destroyed;
   std::atomic<bool> finalized;
@@ -527,6 +529,18 @@ bare_bluetooth_android_channel__on_error(js_env_t *env, js_function_t<void, js_r
   assert(err == 0);
 }
 
+// Registry of live channels. Reader callbacks hold the mutex while dispatching
+// and the channel is erased under it when freed, so it is never freed mid-use.
+static std::mutex bare_bluetooth_android_channels_mutex;
+static std::unordered_map<uint64_t, bare_bluetooth_android_channel_t *> bare_bluetooth_android_channels;
+static uint64_t bare_bluetooth_android_next_channel_id = 1;
+
+static bare_bluetooth_android_channel_t *
+bare_bluetooth_android_find_channel(uint64_t id) {
+  auto it = bare_bluetooth_android_channels.find(id);
+  return it == bare_bluetooth_android_channels.end() ? nullptr : it->second;
+}
+
 static void
 bare_bluetooth_android_channel__on_close(js_env_t *env, js_function_t<void, js_receiver_t> function, bare_bluetooth_android_channel_t *context, void *data) {
   int err;
@@ -551,6 +565,11 @@ bare_bluetooth_android_channel__on_close(js_env_t *env, js_function_t<void, js_r
 
   bool expected = false;
   if (channel->finalized.compare_exchange_strong(expected, true)) {
+    {
+      std::lock_guard<std::mutex> lock(bare_bluetooth_android_channels_mutex);
+      bare_bluetooth_android_channels.erase(channel->id);
+    }
+
     js_release_threadsafe_function(channel->tsfn_open, js_threadsafe_function_abort);
     js_release_threadsafe_function(channel->tsfn_close, js_threadsafe_function_abort);
     js_release_threadsafe_function(channel->tsfn_error, js_threadsafe_function_abort);
@@ -593,16 +612,18 @@ bare_bluetooth_android_channel__on_open(js_env_t *env, js_function_t<void, js_re
 
 static void
 bare_bluetooth_android_on_l2cap_reader_open(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/L2capReader">, long native_ptr) {
-  auto *channel = reinterpret_cast<bare_bluetooth_android_channel_t *>(native_ptr);
-  if (channel->destroyed) return;
+  std::lock_guard<std::mutex> lock(bare_bluetooth_android_channels_mutex);
+  auto *channel = bare_bluetooth_android_find_channel(static_cast<uint64_t>(native_ptr));
+  if (channel == nullptr || channel->destroyed) return;
 
   js_call_threadsafe_function(channel->tsfn_open);
 }
 
 static void
 bare_bluetooth_android_on_l2cap_reader_data(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/L2capReader">, long native_ptr, java_array_t<unsigned char> data) {
-  auto *channel = reinterpret_cast<bare_bluetooth_android_channel_t *>(native_ptr);
-  if (channel->destroyed) return;
+  std::lock_guard<std::mutex> lock(bare_bluetooth_android_channels_mutex);
+  auto *channel = bare_bluetooth_android_find_channel(static_cast<uint64_t>(native_ptr));
+  if (channel == nullptr || channel->destroyed) return;
 
   auto *event = new bare_bluetooth_android_channel_data_t();
   event->data = data.slice();
@@ -612,16 +633,18 @@ bare_bluetooth_android_on_l2cap_reader_data(java_env_t env, java_object_t<"to/ho
 
 static void
 bare_bluetooth_android_on_l2cap_reader_end(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/L2capReader">, long native_ptr) {
-  auto *channel = reinterpret_cast<bare_bluetooth_android_channel_t *>(native_ptr);
-  if (channel->destroyed) return;
+  std::lock_guard<std::mutex> lock(bare_bluetooth_android_channels_mutex);
+  auto *channel = bare_bluetooth_android_find_channel(static_cast<uint64_t>(native_ptr));
+  if (channel == nullptr || channel->destroyed) return;
 
   js_call_threadsafe_function(channel->tsfn_end);
 }
 
 static void
 bare_bluetooth_android_on_l2cap_reader_error(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/L2capReader">, long native_ptr, std::string message) {
-  auto *channel = reinterpret_cast<bare_bluetooth_android_channel_t *>(native_ptr);
-  if (channel->destroyed) return;
+  std::lock_guard<std::mutex> lock(bare_bluetooth_android_channels_mutex);
+  auto *channel = bare_bluetooth_android_find_channel(static_cast<uint64_t>(native_ptr));
+  if (channel == nullptr || channel->destroyed) return;
 
   auto *event = new bare_bluetooth_android_channel_error_t();
   event->message = message;
@@ -631,7 +654,9 @@ bare_bluetooth_android_on_l2cap_reader_error(java_env_t, java_object_t<"to/holep
 
 static void
 bare_bluetooth_android_on_l2cap_reader_close(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/L2capReader">, long native_ptr) {
-  auto *channel = reinterpret_cast<bare_bluetooth_android_channel_t *>(native_ptr);
+  std::lock_guard<std::mutex> lock(bare_bluetooth_android_channels_mutex);
+  auto *channel = bare_bluetooth_android_find_channel(static_cast<uint64_t>(native_ptr));
+  if (channel == nullptr) return;
 
   js_call_threadsafe_function(channel->tsfn_close);
 }
@@ -660,6 +685,12 @@ bare_bluetooth_android_l2cap_init(
   channel->destroyed = false;
   channel->finalized = false;
   channel->exiting = false;
+
+  {
+    std::lock_guard<std::mutex> lock(bare_bluetooth_android_channels_mutex);
+    channel->id = bare_bluetooth_android_next_channel_id++;
+    bare_bluetooth_android_channels.emplace(channel->id, channel);
+  }
 
   delete socket_handle;
 
@@ -711,7 +742,7 @@ bare_bluetooth_android_l2cap_open(js_env_t *env, bare_bluetooth_android_channel_
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
   auto socket = java_object_t<"android/bluetooth/BluetoothSocket">(jenv, channel->socket);
   auto reader_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/L2capReader">();
-  auto reader = reader_class(socket, reinterpret_cast<long>(channel));
+  auto reader = reader_class(socket, static_cast<long>(channel->id));
   channel->reader = java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/L2capReader">>(jenv, reader);
 
   auto start = reader.get_class().get_method<void()>("start");
@@ -2133,6 +2164,8 @@ bare_bluetooth_android_peripheral_request_mtu(js_env_t *env, bare_bluetooth_andr
 }
 
 struct bare_bluetooth_android_peripheral_l2cap_open_req_t {
+  // Stable id handed to the Java connector, resolved against the registry.
+  uint64_t id;
   bare_bluetooth_android_peripheral_t *peripheral;
   bare_bluetooth_android_socket_handle_t *channel;
   java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/L2capConnector">> connector;
@@ -2148,6 +2181,19 @@ typedef struct {
   uint32_t psm;
   std::string error;
 } bare_bluetooth_android_peripheral_l2cap_open_complete_t;
+
+// Registry of in-flight l2cap open requests. The connector callback holds the
+// mutex while dispatching and the request is erased under it when completed, so
+// it is never freed mid-use.
+static std::mutex bare_bluetooth_android_l2cap_reqs_mutex;
+static std::unordered_map<uint64_t, bare_bluetooth_android_peripheral_l2cap_open_req_t *> bare_bluetooth_android_l2cap_reqs;
+static uint64_t bare_bluetooth_android_next_l2cap_req_id = 1;
+
+static bare_bluetooth_android_peripheral_l2cap_open_req_t *
+bare_bluetooth_android_find_l2cap_req(uint64_t id) {
+  auto it = bare_bluetooth_android_l2cap_reqs.find(id);
+  return it == bare_bluetooth_android_l2cap_reqs.end() ? nullptr : it->second;
+}
 
 static void
 bare_bluetooth_android_peripheral_close_socket_handle(JNIEnv *env, bare_bluetooth_android_socket_handle_t *channel) {
@@ -2171,6 +2217,11 @@ bare_bluetooth_android_peripheral__on_l2cap_open_complete(js_env_t *env, js_func
   }
 
   req->completed = true;
+
+  {
+    std::lock_guard<std::mutex> lock(bare_bluetooth_android_l2cap_reqs_mutex);
+    bare_bluetooth_android_l2cap_reqs.erase(req->id);
+  }
 
   peripheral->l2cap_connecting = false;
   peripheral->l2cap_open = nullptr;
@@ -2218,7 +2269,9 @@ bare_bluetooth_android_peripheral__on_l2cap_open_complete(js_env_t *env, js_func
 
 static void
 bare_bluetooth_android_on_l2cap_connector_complete(java_env_t, java_object_t<"to/holepunch/bare/bluetooth/L2capConnector">, long native_ptr, int psm, bool success, std::string error) {
-  auto *req = reinterpret_cast<bare_bluetooth_android_peripheral_l2cap_open_req_t *>(native_ptr);
+  std::lock_guard<std::mutex> lock(bare_bluetooth_android_l2cap_reqs_mutex);
+  auto *req = bare_bluetooth_android_find_l2cap_req(static_cast<uint64_t>(native_ptr));
+  if (req == nullptr) return;
 
   auto *event = new bare_bluetooth_android_peripheral_l2cap_open_complete_t();
   event->req = req;
@@ -2248,6 +2301,12 @@ bare_bluetooth_android_peripheral_open_l2cap_channel(js_env_t *env, bare_bluetoo
   req->channel = nullptr;
   req->psm = psm;
   req->completed = false;
+
+  {
+    std::lock_guard<std::mutex> lock(bare_bluetooth_android_l2cap_reqs_mutex);
+    req->id = bare_bluetooth_android_next_l2cap_req_id++;
+    bare_bluetooth_android_l2cap_reqs.emplace(req->id, req);
+  }
 
   js_value_t *noop;
   err = js_create_function(env, "noop", -1, [](js_env_t *, js_callback_info_t *) -> js_value_t * { return NULL; }, NULL, &noop);
@@ -2281,7 +2340,7 @@ bare_bluetooth_android_peripheral_open_l2cap_channel(js_env_t *env, bare_bluetoo
   };
 
   auto connector_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/L2capConnector">();
-  auto connector = connector_class(socket, reinterpret_cast<long>(req), static_cast<int>(psm));
+  auto connector = connector_class(socket, static_cast<long>(req->id), static_cast<int>(psm));
   req->connector = java_global_ref_t<java_object_t<"to/holepunch/bare/bluetooth/L2capConnector">>(jenv, connector);
 
   auto start = connector.get_class().get_method<void()>("start");
