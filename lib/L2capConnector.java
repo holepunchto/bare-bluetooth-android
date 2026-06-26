@@ -8,15 +8,15 @@ public final class L2capConnector implements Runnable {
   private static final long JOIN_TIMEOUT_MS = 1000;
 
   private final BluetoothSocket socket;
-  private final long nativePointer;
+  private final long nativeId;
   private final int psm;
   private final AtomicBoolean completed = new AtomicBoolean(false);
   private volatile boolean cancelled = false;
   private Thread thread;
 
-  public L2capConnector(BluetoothSocket socket, long nativePointer, int psm) {
+  public L2capConnector(BluetoothSocket socket, long nativeId, int psm) {
     this.socket = socket;
-    this.nativePointer = nativePointer;
+    this.nativeId = nativeId;
     this.psm = psm;
   }
 
@@ -66,12 +66,12 @@ public final class L2capConnector implements Runnable {
     }
 
     if (completed.compareAndSet(false, true)) {
-      nativeOnComplete(nativePointer, psm, success, error == null ? "" : error);
+      nativeOnComplete(nativeId, psm, success, error == null ? "" : error);
     }
   }
 
   private static native void
-  nativeOnComplete(long nativePointer, int psm, boolean success, String error);
+  nativeOnComplete(long nativeId, int psm, boolean success, String error);
 
   private static void
   closeSocket(BluetoothSocket socket) {

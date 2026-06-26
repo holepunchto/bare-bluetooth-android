@@ -10,14 +10,14 @@ public final class L2capReader implements Runnable {
   private static final long JOIN_TIMEOUT_MS = 1000;
 
   private final BluetoothSocket socket;
-  private final long nativePointer;
+  private final long nativeId;
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private volatile boolean stopped = false;
   private Thread thread;
 
-  public L2capReader(BluetoothSocket socket, long nativePointer) {
+  public L2capReader(BluetoothSocket socket, long nativeId) {
     this.socket = socket;
-    this.nativePointer = nativePointer;
+    this.nativeId = nativeId;
   }
 
   public synchronized void
@@ -54,7 +54,7 @@ public final class L2capReader implements Runnable {
 
       if (stopped) return;
 
-      nativeOnOpen(nativePointer);
+      nativeOnOpen(nativeId);
 
       byte[] buffer = new byte[4096];
 
@@ -62,20 +62,20 @@ public final class L2capReader implements Runnable {
         int bytesRead = input.read(buffer);
 
         if (bytesRead == -1) {
-          if (!stopped) nativeOnEnd(nativePointer);
+          if (!stopped) nativeOnEnd(nativeId);
           break;
         }
 
         if (bytesRead > 0) {
           if (stopped) break;
-          nativeOnData(nativePointer, Arrays.copyOf(buffer, bytesRead));
+          nativeOnData(nativeId, Arrays.copyOf(buffer, bytesRead));
         }
       }
     } catch (IOException | RuntimeException e) {
-      if (!stopped) nativeOnError(nativePointer, errorMessage("Read error", e));
+      if (!stopped) nativeOnError(nativeId, errorMessage("Read error", e));
     } finally {
       closeSocket();
-      if (closed.compareAndSet(false, true)) nativeOnClose(nativePointer);
+      if (closed.compareAndSet(false, true)) nativeOnClose(nativeId);
     }
   }
 
@@ -97,17 +97,17 @@ public final class L2capReader implements Runnable {
   }
 
   private static native void
-  nativeOnOpen(long nativePointer);
+  nativeOnOpen(long nativeId);
 
   private static native void
-  nativeOnData(long nativePointer, byte[] data);
+  nativeOnData(long nativeId, byte[] data);
 
   private static native void
-  nativeOnEnd(long nativePointer);
+  nativeOnEnd(long nativeId);
 
   private static native void
-  nativeOnError(long nativePointer, String message);
+  nativeOnError(long nativeId, String message);
 
   private static native void
-  nativeOnClose(long nativePointer);
+  nativeOnClose(long nativeId);
 }
