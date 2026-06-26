@@ -11,6 +11,8 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
   private final long nativeId;
   private final Map<String, BluetoothGatt> connectedGatts = new ConcurrentHashMap<>();
 
+  private long peripheralId;
+
   public GattCallback(long nativeId) {
     this.nativeId = nativeId;
   }
@@ -36,60 +38,65 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
     return connectedGatts.remove(address);
   }
 
+  public void
+  setPeripheralId(long peripheralId) {
+    this.peripheralId = peripheralId;
+  }
+
   @Override
   public void
   onServicesDiscovered(BluetoothGatt gatt, int status) {
-    nativeOnServicesDiscovered(nativeId, gatt, status);
+    nativeOnServicesDiscovered(peripheralId, gatt, status);
   }
 
   @Override
   public void
   onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value, int status) {
-    nativeOnCharacteristicRead(nativeId, gatt, characteristic, value, status);
+    nativeOnCharacteristicRead(peripheralId, gatt, characteristic, value, status);
   }
 
   @Override
   public void
   onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-    nativeOnCharacteristicWrite(nativeId, gatt, characteristic, status);
+    nativeOnCharacteristicWrite(peripheralId, gatt, characteristic, status);
   }
 
   @Override
   public void
   onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value) {
-    nativeOnCharacteristicChanged(nativeId, gatt, characteristic, value);
+    nativeOnCharacteristicChanged(peripheralId, gatt, characteristic, value);
   }
 
   @Override
   public void
   onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-    nativeOnDescriptorWrite(nativeId, gatt, descriptor, status);
+    nativeOnDescriptorWrite(peripheralId, gatt, descriptor, status);
   }
 
   @Override
   public void
   onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
-    nativeOnMtuChanged(nativeId, gatt, mtu, status);
+    nativeOnMtuChanged(peripheralId, gatt, mtu, status);
   }
 
   private static native void
   nativeOnConnectionStateChange(long nativeId, BluetoothGatt gatt, int status, int newState);
 
   private static native void
-  nativeOnServicesDiscovered(long nativeId, BluetoothGatt gatt, int status);
+  nativeOnServicesDiscovered(long peripheralId, BluetoothGatt gatt, int status);
 
   private static native void
-  nativeOnCharacteristicRead(long nativeId, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value, int status);
+  nativeOnCharacteristicRead(long peripheralId, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value, int status);
 
   private static native void
-  nativeOnCharacteristicWrite(long nativeId, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status);
+  nativeOnCharacteristicWrite(long peripheralId, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status);
 
   private static native void
-  nativeOnCharacteristicChanged(long nativeId, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value);
+  nativeOnCharacteristicChanged(long peripheralId, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value);
 
   private static native void
-  nativeOnDescriptorWrite(long nativeId, BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status);
+  nativeOnDescriptorWrite(long peripheralId, BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status);
 
   private static native void
-  nativeOnMtuChanged(long nativeId, BluetoothGatt gatt, int mtu, int status);
+  nativeOnMtuChanged(long peripheralId, BluetoothGatt gatt, int mtu, int status);
 }
