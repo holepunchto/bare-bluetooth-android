@@ -3214,13 +3214,8 @@ bare_bluetooth_android_server_init(
   auto callback_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattServerCallback">();
   auto callback_local = callback_class(static_cast<long>(server->id));
 
-  // The callback carries only the server id and forwards it back on every
-  // event; the native side owns all tsfns, so there is nothing to acquire here
-  // and no setTsfns/finalize bookkeeping.
-
   auto open_gatt_server = bt_manager.get_class().get_method<java_object_t<"android/bluetooth/BluetoothGattServer">(java_object_t<"android/content/Context">, java_object_t<"android/bluetooth/BluetoothGattServerCallback">)>("openGattServer");
   auto gatt_server_local = open_gatt_server(bt_manager, activity, java_object_t<"android/bluetooth/BluetoothGattServerCallback">(jenv, callback_local));
-
   server->gatt_server = java_global_ref_t<java_object_t<"android/bluetooth/BluetoothGattServer">>(jenv, gatt_server_local);
 
   auto get_adapter = bt_manager.get_class().get_method<java_object_t<"android/bluetooth/BluetoothAdapter">()>("getAdapter");
@@ -3229,7 +3224,6 @@ bare_bluetooth_android_server_init(
 
   auto get_advertiser = adapter.get_class().get_method<java_object_t<"android/bluetooth/le/BluetoothLeAdvertiser">()>("getBluetoothLeAdvertiser");
   auto advertiser_local = get_advertiser(adapter);
-
   server->advertiser = java_global_ref_t<java_object_t<"android/bluetooth/le/BluetoothLeAdvertiser">>(jenv, advertiser_local);
 
   auto get_state = adapter.get_class().get_method<int()>("getState");
