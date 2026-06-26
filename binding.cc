@@ -3534,7 +3534,7 @@ bare_bluetooth_android_server_destroy(js_env_t *env, bare_bluetooth_android_serv
 
   // Unregister first: any in-flight callback holds the lock and completes before
   // erase returns; afterwards no callback can resolve the id, so releasing tsfns
-  // and freeing is safe and deterministic — no waiting on the Android GC.
+  // and freeing is safe and deterministic.
   {
     std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
     bare_bluetooth_android_servers.erase(server->id);
