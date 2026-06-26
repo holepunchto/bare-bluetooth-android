@@ -8,26 +8,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class GattCallback extends android.bluetooth.BluetoothGattCallback {
-  private final long nativePointer;
-  private final long tsfnConnect;
-  private final long tsfnDisconnect;
-  private final long tsfnConnectFail;
+  private final long nativeId;
   private final Map<String, BluetoothGatt> connectedGatts = new ConcurrentHashMap<>();
 
-  private long peripheralPointer;
-  private long tsfnServicesDiscover;
-  private long tsfnCharacteristicsDiscover;
-  private long tsfnRead;
-  private long tsfnWrite;
-  private long tsfnNotify;
-  private long tsfnNotifyState;
-  private long tsfnMtuChanged;
-
-  public GattCallback(long nativePointer, long tsfnConnect, long tsfnDisconnect, long tsfnConnectFail) {
-    this.nativePointer = nativePointer;
-    this.tsfnConnect = tsfnConnect;
-    this.tsfnDisconnect = tsfnDisconnect;
-    this.tsfnConnectFail = tsfnConnectFail;
+  public GattCallback(long nativeId) {
+    this.nativeId = nativeId;
   }
 
   @Override
@@ -43,7 +28,7 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
       }
     }
 
-    nativeOnConnectionStateChange(nativePointer, gatt, status, newState);
+    nativeOnConnectionStateChange(nativeId, gatt, status, newState);
   }
 
   public BluetoothGatt
@@ -51,87 +36,60 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
     return connectedGatts.remove(address);
   }
 
-  public void
-  setPeripheralTsfns(long peripheralPointer, long tsfnServicesDiscover, long tsfnCharacteristicsDiscover, long tsfnRead, long tsfnWrite, long tsfnNotify, long tsfnNotifyState, long tsfnMtuChanged) {
-    this.peripheralPointer = peripheralPointer;
-    this.tsfnServicesDiscover = tsfnServicesDiscover;
-    this.tsfnCharacteristicsDiscover = tsfnCharacteristicsDiscover;
-    this.tsfnRead = tsfnRead;
-    this.tsfnWrite = tsfnWrite;
-    this.tsfnNotify = tsfnNotify;
-    this.tsfnNotifyState = tsfnNotifyState;
-    this.tsfnMtuChanged = tsfnMtuChanged;
-  }
-
   @Override
   public void
   onServicesDiscovered(BluetoothGatt gatt, int status) {
-    nativeOnServicesDiscovered(nativePointer, gatt, status);
+    nativeOnServicesDiscovered(nativeId, gatt, status);
   }
 
   @Override
   public void
   onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value, int status) {
-    nativeOnCharacteristicRead(nativePointer, gatt, characteristic, value, status);
+    nativeOnCharacteristicRead(nativeId, gatt, characteristic, value, status);
   }
 
   @Override
   public void
   onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-    nativeOnCharacteristicWrite(nativePointer, gatt, characteristic, status);
+    nativeOnCharacteristicWrite(nativeId, gatt, characteristic, status);
   }
 
   @Override
   public void
   onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value) {
-    nativeOnCharacteristicChanged(nativePointer, gatt, characteristic, value);
+    nativeOnCharacteristicChanged(nativeId, gatt, characteristic, value);
   }
 
   @Override
   public void
   onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-    nativeOnDescriptorWrite(nativePointer, gatt, descriptor, status);
+    nativeOnDescriptorWrite(nativeId, gatt, descriptor, status);
   }
 
   @Override
   public void
   onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
-    nativeOnMtuChanged(nativePointer, gatt, mtu, status);
-  }
-
-  @Override
-  protected void
-  finalize() {
-    nativeOnFinalize(nativePointer, tsfnConnect, tsfnDisconnect, tsfnConnectFail);
-    if (peripheralPointer != 0) {
-      nativeOnPeripheralFinalize(peripheralPointer, tsfnServicesDiscover, tsfnCharacteristicsDiscover, tsfnRead, tsfnWrite, tsfnNotify, tsfnNotifyState, tsfnMtuChanged);
-    }
+    nativeOnMtuChanged(nativeId, gatt, mtu, status);
   }
 
   private static native void
-  nativeOnConnectionStateChange(long nativePointer, BluetoothGatt gatt, int status, int newState);
+  nativeOnConnectionStateChange(long nativeId, BluetoothGatt gatt, int status, int newState);
 
   private static native void
-  nativeOnServicesDiscovered(long nativePointer, BluetoothGatt gatt, int status);
+  nativeOnServicesDiscovered(long nativeId, BluetoothGatt gatt, int status);
 
   private static native void
-  nativeOnCharacteristicRead(long nativePointer, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value, int status);
+  nativeOnCharacteristicRead(long nativeId, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value, int status);
 
   private static native void
-  nativeOnCharacteristicWrite(long nativePointer, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status);
+  nativeOnCharacteristicWrite(long nativeId, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status);
 
   private static native void
-  nativeOnCharacteristicChanged(long nativePointer, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value);
+  nativeOnCharacteristicChanged(long nativeId, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value);
 
   private static native void
-  nativeOnDescriptorWrite(long nativePointer, BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status);
+  nativeOnDescriptorWrite(long nativeId, BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status);
 
   private static native void
-  nativeOnMtuChanged(long nativePointer, BluetoothGatt gatt, int mtu, int status);
-
-  private static native void
-  nativeOnFinalize(long nativePointer, long tsfnConnect, long tsfnDisconnect, long tsfnConnectFail);
-
-  private static native void
-  nativeOnPeripheralFinalize(long peripheralPointer, long tsfnServicesDiscover, long tsfnCharacteristicsDiscover, long tsfnRead, long tsfnWrite, long tsfnNotify, long tsfnNotifyState, long tsfnMtuChanged);
+  nativeOnMtuChanged(long nativeId, BluetoothGatt gatt, int mtu, int status);
 }
