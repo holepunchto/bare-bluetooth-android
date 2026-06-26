@@ -3557,13 +3557,16 @@ bare_bluetooth_android_server_destroy(js_env_t *env, bare_bluetooth_android_serv
 static void
 bare_bluetooth_android_server__on_teardown(js_deferred_teardown_t *handle, void *data) {
   auto *server = static_cast<bare_bluetooth_android_server_t *>(data);
-  server->exiting = true;
 
   bool expected = false;
   if (!server->destroyed.compare_exchange_strong(expected, true)) return;
 
+  // Set exiting and erase under the same lock the inbound callbacks read it
+  // under, so a callback either sees exiting=true (and bails) or fails the
+  // id lookup — never a torn read of exiting across threads.
   {
     std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
+    server->exiting = true;
     bare_bluetooth_android_servers.erase(server->id);
   }
 
@@ -3652,7 +3655,7 @@ static void
 bare_bluetooth_android_on_server_connection_state_change(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattServerCallback"> self, long native_ptr, java_object_t<"android/bluetooth/BluetoothDevice"> device, int status, int new_state) {
   std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
   auto *server = bare_bluetooth_android_find_server(static_cast<uint64_t>(native_ptr));
-  if (server == nullptr) return;
+  if (server == nullptr || server->exiting) return;
 
   auto device_obj = java_object_t<"android/bluetooth/BluetoothDevice">(env, device);
   auto address = device_obj.get_class().get_method<std::string()>("getAddress")(device_obj);
@@ -3669,7 +3672,7 @@ static void
 bare_bluetooth_android_on_service_added(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattServerCallback"> self, long native_ptr, int status, java_object_t<"android/bluetooth/BluetoothGattService"> service) {
   std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
   auto *server = bare_bluetooth_android_find_server(static_cast<uint64_t>(native_ptr));
-  if (server == nullptr) return;
+  if (server == nullptr || server->exiting) return;
 
   auto uuid_str = bare_bluetooth_android_get_uuid_string<"android/bluetooth/BluetoothGattService">(env, service);
 
@@ -3691,7 +3694,7 @@ static void
 bare_bluetooth_android_on_read_request(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattServerCallback"> self, long native_ptr, java_object_t<"android/bluetooth/BluetoothDevice"> device, int request_id, int offset, java_object_t<"android/bluetooth/BluetoothGattCharacteristic"> characteristic) {
   std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
   auto *server = bare_bluetooth_android_find_server(static_cast<uint64_t>(native_ptr));
-  if (server == nullptr) return;
+  if (server == nullptr || server->exiting) return;
 
   auto device_obj = java_object_t<"android/bluetooth/BluetoothDevice">(env, device);
   auto address = device_obj.get_class().get_method<std::string()>("getAddress")(device_obj);
@@ -3712,7 +3715,7 @@ static void
 bare_bluetooth_android_on_write_request(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattServerCallback"> self, long native_ptr, java_object_t<"android/bluetooth/BluetoothDevice"> device, int request_id, java_object_t<"android/bluetooth/BluetoothGattCharacteristic"> characteristic, bool prepared_write, bool response_needed, int offset, java_array_t<unsigned char> value) {
   std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
   auto *server = bare_bluetooth_android_find_server(static_cast<uint64_t>(native_ptr));
-  if (server == nullptr) return;
+  if (server == nullptr || server->exiting) return;
 
   auto device_obj = java_object_t<"android/bluetooth/BluetoothDevice">(env, device);
   auto address = device_obj.get_class().get_method<std::string()>("getAddress")(device_obj);
@@ -3738,7 +3741,7 @@ static void
 bare_bluetooth_android_on_descriptor_write_request(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattServerCallback"> self, long native_ptr, java_object_t<"android/bluetooth/BluetoothDevice"> device, int request_id, java_object_t<"android/bluetooth/BluetoothGattDescriptor"> descriptor, bool prepared_write, bool response_needed, int offset, java_array_t<unsigned char> value) {
   std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
   auto *server = bare_bluetooth_android_find_server(static_cast<uint64_t>(native_ptr));
-  if (server == nullptr) return;
+  if (server == nullptr || server->exiting) return;
 
   auto desc_uuid = bare_bluetooth_android_get_uuid_string<"android/bluetooth/BluetoothGattDescriptor">(env, descriptor);
 
@@ -3829,7 +3832,7 @@ static void
 bare_bluetooth_android_on_notification_sent(java_env_t env, java_object_t<"to/holepunch/bare/bluetooth/GattServerCallback"> self, long native_ptr, java_object_t<"android/bluetooth/BluetoothDevice"> device, int status) {
   std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
   auto *server = bare_bluetooth_android_find_server(static_cast<uint64_t>(native_ptr));
-  if (server == nullptr) return;
+  if (server == nullptr || server->exiting) return;
 
   auto device_obj = java_object_t<"android/bluetooth/BluetoothDevice">(env, device);
   auto address = device_obj.get_class().get_method<std::string()>("getAddress")(device_obj);
