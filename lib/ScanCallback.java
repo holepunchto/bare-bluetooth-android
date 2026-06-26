@@ -3,40 +3,27 @@ package to.holepunch.bare.bluetooth;
 import android.bluetooth.le.ScanResult;
 
 public final class ScanCallback extends android.bluetooth.le.ScanCallback {
-  private final long nativePointer;
-  private final long tsfnDiscover;
-  private final long tsfnScanFail;
+  private final long nativeId;
 
-  public ScanCallback(long nativePointer, long tsfnDiscover, long tsfnScanFail) {
-    this.nativePointer = nativePointer;
-    this.tsfnDiscover = tsfnDiscover;
-    this.tsfnScanFail = tsfnScanFail;
+  public ScanCallback(long nativeId) {
+    this.nativeId = nativeId;
   }
 
   @Override
   public void
   onScanResult(int callbackType, ScanResult result) {
-    nativeOnScanResult(nativePointer, callbackType, result);
+    nativeOnScanResult(nativeId, callbackType, result);
   }
 
   @Override
   public void
   onScanFailed(int errorCode) {
-    nativeOnScanFailed(nativePointer, errorCode);
-  }
-
-  @Override
-  protected void
-  finalize() {
-    nativeOnFinalize(nativePointer, tsfnDiscover, tsfnScanFail);
+    nativeOnScanFailed(nativeId, errorCode);
   }
 
   private static native void
-  nativeOnScanResult(long nativePointer, int callbackType, ScanResult result);
+  nativeOnScanResult(long nativeId, int callbackType, ScanResult result);
 
   private static native void
-  nativeOnScanFailed(long nativePointer, int errorCode);
-
-  private static native void
-  nativeOnFinalize(long nativePointer, long tsfnDiscover, long tsfnScanFail);
+  nativeOnScanFailed(long nativeId, int errorCode);
 }
