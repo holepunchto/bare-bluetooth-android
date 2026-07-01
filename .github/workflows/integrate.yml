@@ -22,6 +22,15 @@ jobs:
           - os: ubuntu-latest
             platform: android
             arch: arm64
+          - os: ubuntu-latest
+            platform: android
+            arch: arm
+          - os: ubuntu-latest
+            platform: android
+            arch: x64
+          - os: ubuntu-latest
+            platform: android
+            arch: ia32
     runs-on: ${{ matrix.os }}
     name: Test / ${{ matrix.platform }}-${{ matrix.arch }}
     steps:
