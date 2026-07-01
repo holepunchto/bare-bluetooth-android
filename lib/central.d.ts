@@ -1,5 +1,6 @@
 import { EventEmitter, EventMap } from 'bare-events'
 import Peripheral from './peripheral'
+import BluetoothError from './errors'
 
 export type BluetoothState = 'off' | 'turningOn' | 'on' | 'turningOff'
 
@@ -7,9 +8,8 @@ export interface CentralEventMap extends EventMap {
   stateChange: [state: BluetoothState]
   discover: [peripheral: Peripheral]
   connect: [peripheral: Peripheral]
-  disconnect: [peripheral: Peripheral | null, error?: string]
-  connectFail: [id: string, error: string]
-  scanFail: [errorCode: number]
+  disconnect: [peripheral: Peripheral | null]
+  error: [error: BluetoothError]
 }
 
 export default class Central extends EventEmitter<CentralEventMap> {

@@ -3,6 +3,7 @@ import Service from './service'
 import Characteristic from './characteristic'
 import L2CAPChannel from './channel'
 import ScanResult from './scan-result'
+import BluetoothError from './errors'
 import type { ServiceData } from './scan-record'
 
 export interface PeripheralOptions {
@@ -10,18 +11,16 @@ export interface PeripheralOptions {
 }
 
 export interface PeripheralEventMap extends EventMap {
-  servicesDiscover: [services: Service[] | null, error?: string]
-  characteristicsDiscover: [
-    service: Service | null,
-    characteristics: Characteristic[] | null,
-    error?: string
-  ]
-  read: [characteristic: Characteristic | null, data: Uint8Array, error?: string]
-  write: [characteristic: Characteristic | null, error?: string]
-  notify: [characteristic: Characteristic | null, data: Uint8Array, error?: string]
-  notifyState: [characteristic: Characteristic | null, isNotifying: boolean, error?: string]
-  channelOpen: [channel: L2CAPChannel | null, error?: string]
-  mtuChanged: [mtu: number, error?: string]
+  servicesDiscover: [services: Service[]]
+  characteristicsDiscover: [service: Service | null, characteristics: Characteristic[]]
+  read: [characteristic: Characteristic | null, data: Uint8Array]
+  write: [characteristic: Characteristic | null]
+  notify: [characteristic: Characteristic | null, data: Uint8Array]
+  notifyState: [characteristic: Characteristic | null, isNotifying: boolean]
+  channelOpen: [channel: L2CAPChannel]
+  mtuChanged: [mtu: number]
+  disconnect: []
+  error: [error: BluetoothError]
 }
 
 export default class Peripheral extends EventEmitter<PeripheralEventMap> {
