@@ -2,6 +2,7 @@ import { EventEmitter, EventMap } from 'bare-events'
 import Service from './service'
 import Characteristic from './characteristic'
 import L2CAPChannel from './channel'
+import BluetoothError from './errors'
 
 export type BluetoothState = 'off' | 'turningOn' | 'on' | 'turningOff'
 
@@ -32,15 +33,15 @@ export interface WriteRequest {
 
 export interface ServerEventMap extends EventMap {
   stateChange: [state: BluetoothState]
-  serviceAdd: [uuid: string, error?: string]
-  channelPublish: [psm: number, error?: string]
-  channelOpen: [channel: L2CAPChannel | null, error?: string]
+  serviceAdd: [uuid: string]
+  channelPublish: [psm: number]
+  channelOpen: [channel: L2CAPChannel]
   readRequest: [request: ReadRequest]
   writeRequest: [requests: WriteRequest[]]
   subscribe: [deviceAddress: string, characteristicUuid: string]
   unsubscribe: [deviceAddress: string, characteristicUuid: string]
-  advertiseError: [errorCode: number, error: string]
   notifySent: [deviceAddress: string, status: number]
+  error: [error: BluetoothError]
 }
 
 declare class Server extends EventEmitter<ServerEventMap> {
