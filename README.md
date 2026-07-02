@@ -329,9 +329,35 @@ Emitted when an L2CAP channel is published. The listener receives the `psm` and 
 
 Emitted when an L2CAP channel is opened by a client. The listener receives an `L2CAPChannel` instance or `null`, and an optional `error`.
 
+#### `event: 'connecting'`
+
+Emitted when a central is connecting. The listener receives `deviceAddress`.
+
+#### `event: 'connected'`
+
+Emitted when a central has connected. The listener receives `deviceAddress`.
+
+#### `event: 'disconnecting'`
+
+Emitted when a central is disconnecting. The listener receives `deviceAddress`.
+
+#### `event: 'disconnected'`
+
+Emitted when a central has disconnected. The listener receives `deviceAddress`.
+
 #### `event: 'notifySent'`
 
 Emitted when a notification is delivered. The listener receives `deviceAddress` and `status`.
+
+#### `Server.CONNECTION_STATE_DISCONNECTED`
+
+#### `Server.CONNECTION_STATE_CONNECTING`
+
+#### `Server.CONNECTION_STATE_CONNECTED`
+
+#### `Server.CONNECTION_STATE_DISCONNECTING`
+
+Connection state constants matching `BluetoothProfile.STATE_*`.
 
 #### `Server.PROPERTY_READ`
 
