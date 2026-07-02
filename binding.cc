@@ -3084,7 +3084,9 @@ bare_bluetooth_android_server__on_channel_open(js_env_t *env, js_function_t<void
 }
 
 static void
-bare_bluetooth_android_server__on_connection_state(js_env_t *env, js_function_t<void> function, bare_bluetooth_android_server_t *context, bare_bluetooth_android_server_connection_state_t *data) {
+bare_bluetooth_android_server__on_connection_state(js_env_t *env, js_function_t<void, js_receiver_t, std::string, int32_t> function, bare_bluetooth_android_server_t *context, bare_bluetooth_android_server_connection_state_t *data) {
+  int err;
+
   auto *event = static_cast<bare_bluetooth_android_server_connection_state_t *>(data);
   auto *server = static_cast<bare_bluetooth_android_server_t *>(context);
 
@@ -3092,6 +3094,14 @@ bare_bluetooth_android_server__on_connection_state(js_env_t *env, js_function_t<
     delete event;
     return;
   }
+
+  js_handle_scope_t *scope;
+  err = js_open_handle_scope(env, &scope);
+  assert(err == 0);
+
+  js_value_t *receiver;
+  err = js_get_reference_value(env, server->ctx, &receiver);
+  assert(err == 0);
 
   if (event->new_state == 2) {
     server->connected_devices.insert(event->address);
@@ -3103,7 +3113,13 @@ bare_bluetooth_android_server__on_connection_state(js_env_t *env, js_function_t<
     }
   }
 
+  err = js_call_function(env, function, js_receiver_t(receiver), event->address, event->new_state);
+  assert(err == 0);
+
   delete event;
+
+  err = js_close_handle_scope(env, scope);
+  assert(err == 0);
 }
 
 static void
@@ -3167,7 +3183,8 @@ bare_bluetooth_android_server_init(
   js_function_t<void, js_receiver_t, int32_t, std::string> on_advertise_error,
   js_function_t<void, js_receiver_t, uint32_t, js_handle_t> on_channel_publish,
   js_function_t<void, js_receiver_t, js_handle_t, js_handle_t, uint32_t> on_channel_open,
-  js_function_t<void, js_receiver_t, std::string, int32_t> on_notify_sent
+  js_function_t<void, js_receiver_t, std::string, int32_t> on_notify_sent,
+  js_function_t<void, js_receiver_t, std::string, int32_t> on_connection_state
 ) {
   int err;
 
@@ -3215,12 +3232,12 @@ bare_bluetooth_android_server_init(
   err = js_create_threadsafe_function<bare_bluetooth_android_server__on_notify_sent, bare_bluetooth_android_server_t, bare_bluetooth_android_server_notify_sent_t>(env, on_notify_sent, 0, 1, server, server->tsfn_notify_sent);
   assert(err == 0);
 
+  err = js_create_threadsafe_function<bare_bluetooth_android_server__on_connection_state, bare_bluetooth_android_server_t, bare_bluetooth_android_server_connection_state_t>(env, on_connection_state, 0, 1, server, server->tsfn_server_connection_state);
+  assert(err == 0);
+
   {
     js_value_t *noop;
     err = js_create_function(env, "noop", -1, [](js_env_t *, js_callback_info_t *) -> js_value_t * { return NULL; }, NULL, &noop);
-    assert(err == 0);
-
-    err = js_create_threadsafe_function<bare_bluetooth_android_server__on_connection_state, bare_bluetooth_android_server_t, bare_bluetooth_android_server_connection_state_t>(env, js_function_t<void>(noop), 0, 1, server, server->tsfn_server_connection_state);
     assert(err == 0);
 
     err = js_create_threadsafe_function<bare_bluetooth_android_server__on_descriptor_response, bare_bluetooth_android_server_t, bare_bluetooth_android_server_descriptor_response_t>(env, js_function_t<void>(noop), 0, 1, server, server->tsfn_descriptor_response);
@@ -4018,6 +4035,12 @@ bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
   V("ATT_WRITE_NOT_PERMITTED", 0x03)
   V("ATT_INSUFFICIENT_RESOURCES", 0x11)
   V("ATT_UNLIKELY_ERROR", 0x0E)
+
+  // BluetoothProfile.STATE_* — stable since API 5, hardcoded to avoid JNI reflection
+  V("CONNECTION_STATE_DISCONNECTED", 0)
+  V("CONNECTION_STATE_CONNECTING", 1)
+  V("CONNECTION_STATE_CONNECTED", 2)
+  V("CONNECTION_STATE_DISCONNECTING", 3)
 
   V("SCAN_MODE_LOW_POWER", 0)
   V("SCAN_MODE_BALANCED", 1)
