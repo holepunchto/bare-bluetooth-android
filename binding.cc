@@ -2325,33 +2325,14 @@ bare_bluetooth_android_peripheral_subscribe(
   bare_bluetooth_android_characteristic_handle_t *char_handle
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
-  auto gatt = j_bluetooth_gatt_t(jenv, peripheral->gatt);
-  auto characteristic = j_bluetooth_gatt_characteristic_t(jenv, char_handle->handle);
 
-  auto set_notify = gatt.get_class().get_method<bool(j_bluetooth_gatt_characteristic_t, bool)>("setCharacteristicNotification");
-  bool ok = set_notify(gatt, characteristic, true);
+  auto helper = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattServiceHelper">();
+  auto subscribe = helper.get_static_method<bool(j_bluetooth_gatt_t, j_bluetooth_gatt_characteristic_t)>("subscribe");
 
-  auto uuid_class = java_class_t<"java/util/UUID">(jenv);
-  auto from_string = uuid_class.get_static_method<j_uuid_t(std::string)>("fromString");
-  auto cccd_uuid = from_string(std::string("00002902-0000-1000-8000-00805f9b34fb"));
-
-  auto get_descriptor = characteristic.get_class().get_method<j_bluetooth_gatt_descriptor_t(j_uuid_t)>("getDescriptor");
-  auto descriptor = get_descriptor(characteristic, cccd_uuid);
-
-  if (static_cast<jobject>(descriptor) != nullptr) {
-    jbyte enable_bytes[] = {0x01, 0x00};
-    auto enable_value = bare_bluetooth_android_make_byte_array(jenv, enable_bytes, 2);
-
-    auto set_descriptor_value = descriptor.get_class().get_method<bool(java_array_t<unsigned char>)>("setValue");
-    set_descriptor_value(descriptor, enable_value);
-
-    auto write_descriptor = gatt.get_class().get_method<bool(j_bluetooth_gatt_descriptor_t)>("writeDescriptor");
-    ok = write_descriptor(gatt, descriptor) && ok;
-  } else {
-    ok = false;
-  }
-
-  return ok;
+  return subscribe(
+    j_bluetooth_gatt_t(jenv, peripheral->gatt),
+    j_bluetooth_gatt_characteristic_t(jenv, char_handle->handle)
+  );
 }
 
 static bool
@@ -2361,33 +2342,14 @@ bare_bluetooth_android_peripheral_unsubscribe(
   bare_bluetooth_android_characteristic_handle_t *char_handle
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
-  auto gatt = j_bluetooth_gatt_t(jenv, peripheral->gatt);
-  auto characteristic = j_bluetooth_gatt_characteristic_t(jenv, char_handle->handle);
 
-  auto set_notify = gatt.get_class().get_method<bool(j_bluetooth_gatt_characteristic_t, bool)>("setCharacteristicNotification");
-  bool ok = set_notify(gatt, characteristic, false);
+  auto helper = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattServiceHelper">();
+  auto unsubscribe = helper.get_static_method<bool(j_bluetooth_gatt_t, j_bluetooth_gatt_characteristic_t)>("unsubscribe");
 
-  auto uuid_class = java_class_t<"java/util/UUID">(jenv);
-  auto from_string = uuid_class.get_static_method<j_uuid_t(std::string)>("fromString");
-  auto cccd_uuid = from_string(std::string("00002902-0000-1000-8000-00805f9b34fb"));
-
-  auto get_descriptor = characteristic.get_class().get_method<j_bluetooth_gatt_descriptor_t(j_uuid_t)>("getDescriptor");
-  auto descriptor = get_descriptor(characteristic, cccd_uuid);
-
-  if (static_cast<jobject>(descriptor) != nullptr) {
-    jbyte disable_bytes[] = {0x00, 0x00};
-    auto disable_value = bare_bluetooth_android_make_byte_array(jenv, disable_bytes, 2);
-
-    auto set_descriptor_value = descriptor.get_class().get_method<bool(java_array_t<unsigned char>)>("setValue");
-    set_descriptor_value(descriptor, disable_value);
-
-    auto write_descriptor = gatt.get_class().get_method<bool(j_bluetooth_gatt_descriptor_t)>("writeDescriptor");
-    ok = write_descriptor(gatt, descriptor) && ok;
-  } else {
-    ok = false;
-  }
-
-  return ok;
+  return unsubscribe(
+    j_bluetooth_gatt_t(jenv, peripheral->gatt),
+    j_bluetooth_gatt_characteristic_t(jenv, char_handle->handle)
+  );
 }
 
 static bool

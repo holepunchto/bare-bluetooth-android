@@ -1,5 +1,6 @@
 package to.holepunch.bare.bluetooth;
 
+import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
@@ -7,6 +8,8 @@ import java.util.UUID;
 
 public final class GattServiceHelper {
   private static final UUID CCCD_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+  private static final byte[] ENABLE_NOTIFICATION = {0x01, 0x00};
+  private static final byte[] DISABLE_NOTIFICATION = {0x00, 0x00};
 
   public static BluetoothGattService
   createService(UUID uuid, boolean isPrimary) {
@@ -34,5 +37,27 @@ public final class GattServiceHelper {
     }
 
     return characteristic;
+  }
+
+  public static boolean
+  subscribe(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+    boolean ok = gatt.setCharacteristicNotification(characteristic, true);
+    BluetoothGattDescriptor descriptor = characteristic.getDescriptor(CCCD_UUID);
+
+    if (descriptor == null) return false;
+
+    descriptor.setValue(ENABLE_NOTIFICATION);
+    return gatt.writeDescriptor(descriptor) && ok;
+  }
+
+  public static boolean
+  unsubscribe(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+    boolean ok = gatt.setCharacteristicNotification(characteristic, false);
+    BluetoothGattDescriptor descriptor = characteristic.getDescriptor(CCCD_UUID);
+
+    if (descriptor == null) return false;
+
+    descriptor.setValue(DISABLE_NOTIFICATION);
+    return gatt.writeDescriptor(descriptor) && ok;
   }
 }
