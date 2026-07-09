@@ -42,6 +42,7 @@ add_dex(
     lib/ScanCallback.java
     lib/ScanHelper.java
     lib/GattCallback.java
+    lib/GattServiceHelper.java
     lib/GattServerCallback.java
     lib/AdvertiseCallback.java
     lib/AdvertiseHelper.java

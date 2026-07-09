@@ -4002,8 +4002,9 @@ bare_bluetooth_android_create_mutable_service(
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
-  auto service_class = java_class_t<"android/bluetooth/BluetoothGattService">(jenv);
-  auto service = service_class(j_uuid_t(jenv, uuid_handle->handle), is_primary ? 0 : 1);
+  auto helper = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattServiceHelper">();
+  auto create_service = helper.get_static_method<j_bluetooth_gatt_service_t(j_uuid_t, bool)>("createService");
+  auto service = create_service(j_uuid_t(jenv, uuid_handle->handle), is_primary);
 
   auto *service_handle = new bare_bluetooth_android_service_handle_t{java_global_ref_t<j_bluetooth_gatt_service_t>(jenv, service)};
 
@@ -4024,28 +4025,11 @@ bare_bluetooth_android_create_mutable_characteristic(
 ) {
   int err;
 
-  int32_t android_permissions = 0;
-  if (js_permissions & 0x01) android_permissions |= 0x01;
-  if (js_permissions & 0x02) android_permissions |= 0x10;
-  if (js_permissions & 0x04) android_permissions |= 0x02;
-  if (js_permissions & 0x08) android_permissions |= 0x20;
-
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
-  auto char_class = java_class_t<"android/bluetooth/BluetoothGattCharacteristic">(jenv);
-  auto characteristic = char_class(j_uuid_t(jenv, uuid_handle->handle), properties, android_permissions);
-
-  if (properties & 0x30) {
-    auto uuid_class = java_class_t<"java/util/UUID">(jenv);
-    auto from_string = uuid_class.get_static_method<j_uuid_t(std::string)>("fromString");
-    auto cccd_uuid = from_string(std::string("00002902-0000-1000-8000-00805f9b34fb"));
-
-    auto desc_class = java_class_t<"android/bluetooth/BluetoothGattDescriptor">(jenv);
-    auto cccd = desc_class(cccd_uuid, 0x11);
-
-    auto add_descriptor = characteristic.get_class().get_method<bool(j_bluetooth_gatt_descriptor_t)>("addDescriptor");
-    add_descriptor(characteristic, cccd);
-  }
+  auto helper = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattServiceHelper">();
+  auto create_char = helper.get_static_method<j_bluetooth_gatt_characteristic_t(j_uuid_t, int, int)>("createCharacteristic");
+  auto characteristic = create_char(j_uuid_t(jenv, uuid_handle->handle), properties, js_permissions);
 
   if (value) {
     auto byte_array = bare_bluetooth_android_make_byte_array(jenv, value->data(), value->size());
