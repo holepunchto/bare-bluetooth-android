@@ -40,6 +40,7 @@ add_dex(
   bare_bluetooth_classes
   SOURCES
     lib/ScanCallback.java
+    lib/ScanHelper.java
     lib/GattCallback.java
     lib/GattServerCallback.java
     lib/AdvertiseCallback.java
