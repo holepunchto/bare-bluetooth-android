@@ -47,6 +47,7 @@ add_dex(
     lib/AdvertiseCallback.java
     lib/AdvertiseHelper.java
     lib/L2capConnector.java
+    lib/L2capUtil.java
     lib/L2capReader.java
     lib/L2capAcceptor.java
   INCLUDE_JARS

@@ -7,8 +7,6 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class L2capReader implements Runnable {
-  private static final long JOIN_TIMEOUT_MS = 1000;
-
   private final BluetoothSocket socket;
   private final long nativeId;
   private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -35,15 +33,7 @@ public final class L2capReader implements Runnable {
     stopped = true;
     closeSocket();
 
-    Thread t = thread;
-
-    if (t != null && t != Thread.currentThread()) {
-      try {
-        t.join(JOIN_TIMEOUT_MS);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    }
+    L2capUtil.joinThread(thread);
   }
 
   @Override
@@ -72,7 +62,7 @@ public final class L2capReader implements Runnable {
         }
       }
     } catch (IOException | RuntimeException e) {
-      if (!stopped) nativeOnError(nativeId, errorMessage("Read error", e));
+      if (!stopped) nativeOnError(nativeId, L2capUtil.errorMessage("Read error", e));
     } finally {
       closeSocket();
       if (closed.compareAndSet(false, true)) nativeOnClose(nativeId);
@@ -86,14 +76,6 @@ public final class L2capReader implements Runnable {
     } catch (IOException | RuntimeException e) {
       // Ignore close errors during teardown to avoid duplicate close events.
     }
-  }
-
-  private static String
-  errorMessage(String prefix, Throwable error) {
-    String message = error.getMessage();
-    return message == null || message.length() == 0
-      ? prefix + ": " + error.getClass().getSimpleName()
-      : prefix + ": " + message;
   }
 
   private static native void
