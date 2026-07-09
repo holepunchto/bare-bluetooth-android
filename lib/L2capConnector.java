@@ -33,7 +33,7 @@ public final class L2capConnector implements Runnable {
 
     closeSocket(socket);
 
-    L2capUtil.joinThread(thread);
+    ThreadHelper.join(thread);
   }
 
   @Override
@@ -52,7 +52,7 @@ public final class L2capConnector implements Runnable {
         success = true;
       }
     } catch (IOException | RuntimeException e) {
-      error = cancelled ? "L2CAP connect cancelled" : L2capUtil.errorMessage("L2CAP connect failed", e);
+      error = cancelled ? "L2CAP connect cancelled" : ErrorHelper.formatMessage("L2CAP connect failed", e);
     }
 
     if (completed.compareAndSet(false, true)) {

@@ -33,7 +33,7 @@ public final class L2capReader implements Runnable {
     stopped = true;
     closeSocket();
 
-    L2capUtil.joinThread(thread);
+    ThreadHelper.join(thread);
   }
 
   @Override
@@ -62,7 +62,7 @@ public final class L2capReader implements Runnable {
         }
       }
     } catch (IOException | RuntimeException e) {
-      if (!stopped) nativeOnError(nativeId, L2capUtil.errorMessage("Read error", e));
+      if (!stopped) nativeOnError(nativeId, ErrorHelper.formatMessage("Read error", e));
     } finally {
       closeSocket();
       if (closed.compareAndSet(false, true)) nativeOnClose(nativeId);

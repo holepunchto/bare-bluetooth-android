@@ -38,10 +38,10 @@ public final class L2capAcceptor implements Runnable {
     try {
       serverSocket.close();
     } catch (IOException | RuntimeException e) {
-      nativeOnError(nativeId, psm, L2capUtil.errorMessage("L2CAP accept close failed", e));
+      nativeOnError(nativeId, psm, ErrorHelper.formatMessage("L2CAP accept close failed", e));
     }
 
-    L2capUtil.joinThread(thread);
+    ThreadHelper.join(thread);
 
     for (BluetoothSocket socket : acceptedSockets.values()) {
       closeAcceptedSocket(socket);
@@ -80,7 +80,7 @@ public final class L2capAcceptor implements Runnable {
         nativeOnAccepted(nativeId, psm, id);
       } catch (IOException | RuntimeException e) {
         if (!stopped) {
-          nativeOnError(nativeId, psm, L2capUtil.errorMessage("L2CAP accept failed", e));
+          nativeOnError(nativeId, psm, ErrorHelper.formatMessage("L2CAP accept failed", e));
         }
 
         break;
@@ -93,7 +93,7 @@ public final class L2capAcceptor implements Runnable {
     try {
       socket.close();
     } catch (IOException | RuntimeException e) {
-      nativeOnError(nativeId, psm, L2capUtil.errorMessage("Accepted L2CAP socket close failed", e));
+      nativeOnError(nativeId, psm, ErrorHelper.formatMessage("Accepted L2CAP socket close failed", e));
     }
   }
 
