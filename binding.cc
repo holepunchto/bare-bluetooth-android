@@ -60,12 +60,8 @@ using j_advertise_settings_builder_t = java_object_t<"android/bluetooth/le/Adver
 using j_bluetooth_le_advertiser_t = java_object_t<"android/bluetooth/le/BluetoothLeAdvertiser">;
 using j_bluetooth_le_scanner_t = java_object_t<"android/bluetooth/le/BluetoothLeScanner">;
 using j_scan_callback_t = java_object_t<"android/bluetooth/le/ScanCallback">;
-using j_scan_filter_t = java_object_t<"android/bluetooth/le/ScanFilter">;
-using j_scan_filter_builder_t = java_object_t<"android/bluetooth/le/ScanFilter$Builder">;
 using j_scan_record_t = java_object_t<"android/bluetooth/le/ScanRecord">;
 using j_scan_result_t = java_object_t<"android/bluetooth/le/ScanResult">;
-using j_scan_settings_t = java_object_t<"android/bluetooth/le/ScanSettings">;
-using j_scan_settings_builder_t = java_object_t<"android/bluetooth/le/ScanSettings$Builder">;
 
 // to.holepunch.bare.bluetooth
 using j_hp_advertise_callback_t = java_object_t<"to/holepunch/bare/bluetooth/AdvertiseCallback">;
@@ -75,6 +71,7 @@ using j_hp_l2cap_acceptor_t = java_object_t<"to/holepunch/bare/bluetooth/L2capAc
 using j_hp_l2cap_connector_t = java_object_t<"to/holepunch/bare/bluetooth/L2capConnector">;
 using j_hp_l2cap_reader_t = java_object_t<"to/holepunch/bare/bluetooth/L2capReader">;
 using j_hp_scan_callback_t = java_object_t<"to/holepunch/bare/bluetooth/ScanCallback">;
+using j_hp_scan_helper_t = java_object_t<"to/holepunch/bare/bluetooth/ScanHelper">;
 
 static inline java_vm_t
 bare_bluetooth_android_jvm() {
@@ -1356,28 +1353,15 @@ bare_bluetooth_android_central_start_scan(
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
-  j_list_t filter_list;
+  auto helper_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/ScanHelper">();
+  auto helper = helper_class(static_cast<int>(scan_mode.value_or(2)));
 
   if (uuids) {
-    auto arraylist_class = java_class_t<"java/util/ArrayList">(jenv);
-    auto list = arraylist_class();
-    auto list_add = list.get_class().get_method<bool(j_object_t)>("add");
-
-    auto filter_builder_class = java_class_t<"android/bluetooth/le/ScanFilter$Builder">(jenv);
-    auto parcel_uuid_class = java_class_t<"android/os/ParcelUuid">(jenv);
+    auto add_uuid = helper.get_class().get_method<void(j_uuid_t)>("addServiceUuid");
 
     for (auto *uuid_handle : *uuids) {
-      auto builder = filter_builder_class();
-      auto set_service_uuid = builder.get_class().get_method<j_scan_filter_builder_t(j_parcel_uuid_t)>("setServiceUuid");
-      auto parcel_uuid = parcel_uuid_class(j_uuid_t(jenv, uuid_handle->handle));
-      set_service_uuid(builder, parcel_uuid);
-
-      auto build_filter = builder.get_class().get_method<j_scan_filter_t()>("build");
-      auto filter = build_filter(builder);
-      list_add(list, j_object_t(jenv, filter));
+      add_uuid(helper, j_uuid_t(jenv, uuid_handle->handle));
     }
-
-    filter_list = j_list_t(jenv, list);
   }
 
   auto callback_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/ScanCallback">();
@@ -1385,17 +1369,8 @@ bare_bluetooth_android_central_start_scan(
 
   central->scan_callback = java_global_ref_t<j_hp_scan_callback_t>(jenv, callback_local);
 
-  auto settings_builder_class = java_class_t<"android/bluetooth/le/ScanSettings$Builder">(jenv);
-  auto settings_builder = settings_builder_class();
-
-  auto set_scan_mode = settings_builder.get_class().get_method<j_scan_settings_builder_t(int)>("setScanMode");
-  set_scan_mode(settings_builder, scan_mode.value_or(2));
-
-  auto build_settings = settings_builder.get_class().get_method<j_scan_settings_t()>("build");
-  auto settings = build_settings(settings_builder);
-
-  auto start_scan = central->scanner.get_class().get_method<void(j_list_t, j_scan_settings_t, j_scan_callback_t)>("startScan");
-  start_scan(central->scanner, filter_list, j_scan_settings_t(jenv, settings), j_scan_callback_t(jenv, central->scan_callback));
+  auto start = helper.get_class().get_method<void(j_bluetooth_le_scanner_t, j_scan_callback_t)>("startScan");
+  start(helper, j_bluetooth_le_scanner_t(jenv, central->scanner), j_scan_callback_t(jenv, central->scan_callback));
 }
 
 static void
