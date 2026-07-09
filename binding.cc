@@ -40,6 +40,9 @@ bare_bluetooth_android_get_uuid_string(JNIEnv *env, java_object_t<N> obj) {
 
 static inline std::string
 bare_bluetooth_android_create_characteristic_key(const std::string &service_uuid, const std::string &characteristic_uuid, int32_t instance_id) {
+  assert(!service_uuid.empty());
+  assert(!characteristic_uuid.empty());
+
   return service_uuid + ":" + characteristic_uuid + ":" + std::to_string(instance_id);
 }
 
