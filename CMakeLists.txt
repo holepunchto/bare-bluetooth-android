@@ -49,6 +49,8 @@ add_dex(
     lib/L2capConnector.java
     lib/L2capReader.java
     lib/L2capAcceptor.java
+    lib/ErrorHelper.java
+    lib/ThreadHelper.java
   INCLUDE_JARS
     ${android_jar}
 )

@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class L2capConnector implements Runnable {
-  private static final long JOIN_TIMEOUT_MS = 1000;
-
   private final BluetoothSocket socket;
   private final long nativeId;
   private final int psm;
@@ -35,15 +33,7 @@ public final class L2capConnector implements Runnable {
 
     closeSocket(socket);
 
-    Thread t = thread;
-
-    if (t != null && t != Thread.currentThread()) {
-      try {
-        t.join(JOIN_TIMEOUT_MS);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    }
+    ThreadHelper.join(thread);
   }
 
   @Override
@@ -62,7 +52,7 @@ public final class L2capConnector implements Runnable {
         success = true;
       }
     } catch (IOException | RuntimeException e) {
-      error = cancelled ? "L2CAP connect cancelled" : errorMessage("L2CAP connect failed", e);
+      error = cancelled ? "L2CAP connect cancelled" : ErrorHelper.formatMessage("L2CAP connect failed", e);
     }
 
     if (completed.compareAndSet(false, true)) {
@@ -82,11 +72,4 @@ public final class L2capConnector implements Runnable {
     }
   }
 
-  private static String
-  errorMessage(String prefix, Throwable error) {
-    String message = error.getMessage();
-    return message == null || message.length() == 0
-      ? prefix + ": " + error.getClass().getSimpleName()
-      : prefix + ": " + message;
-  }
 }
