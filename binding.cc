@@ -53,10 +53,7 @@ using j_bluetooth_socket_t = java_object_t<"android/bluetooth/BluetoothSocket">;
 
 // android.bluetooth.le
 using j_advertise_callback_t = java_object_t<"android/bluetooth/le/AdvertiseCallback">;
-using j_advertise_data_t = java_object_t<"android/bluetooth/le/AdvertiseData">;
-using j_advertise_data_builder_t = java_object_t<"android/bluetooth/le/AdvertiseData$Builder">;
 using j_advertise_settings_t = java_object_t<"android/bluetooth/le/AdvertiseSettings">;
-using j_advertise_settings_builder_t = java_object_t<"android/bluetooth/le/AdvertiseSettings$Builder">;
 using j_bluetooth_le_advertiser_t = java_object_t<"android/bluetooth/le/BluetoothLeAdvertiser">;
 using j_bluetooth_le_scanner_t = java_object_t<"android/bluetooth/le/BluetoothLeScanner">;
 using j_scan_callback_t = java_object_t<"android/bluetooth/le/ScanCallback">;
@@ -65,6 +62,7 @@ using j_scan_result_t = java_object_t<"android/bluetooth/le/ScanResult">;
 
 // to.holepunch.bare.bluetooth
 using j_hp_advertise_callback_t = java_object_t<"to/holepunch/bare/bluetooth/AdvertiseCallback">;
+using j_hp_advertise_helper_t = java_object_t<"to/holepunch/bare/bluetooth/AdvertiseHelper">;
 using j_hp_gatt_callback_t = java_object_t<"to/holepunch/bare/bluetooth/GattCallback">;
 using j_hp_gatt_server_callback_t = java_object_t<"to/holepunch/bare/bluetooth/GattServerCallback">;
 using j_hp_l2cap_acceptor_t = java_object_t<"to/holepunch/bare/bluetooth/L2capAcceptor">;
@@ -3703,41 +3701,23 @@ bare_bluetooth_android_server_start_advertising(
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
-  auto settings_builder_class = java_class_t<"android/bluetooth/le/AdvertiseSettings$Builder">(jenv);
-  auto settings_builder = settings_builder_class();
-  auto set_mode = settings_builder.get_class().get_method<j_advertise_settings_builder_t(int)>("setAdvertiseMode");
-  set_mode(settings_builder, 1);
-  auto set_connectable = settings_builder.get_class().get_method<j_advertise_settings_builder_t(bool)>("setConnectable");
-  set_connectable(settings_builder, true);
-  auto build_settings = settings_builder.get_class().get_method<j_advertise_settings_t()>("build");
-  auto settings = build_settings(settings_builder);
-
-  auto data_builder_class = java_class_t<"android/bluetooth/le/AdvertiseData$Builder">(jenv);
-  auto data_builder = data_builder_class();
+  auto helper_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/AdvertiseHelper">();
+  auto helper = helper_class(1, true, name.has_value());
 
   if (uuids) {
-    auto add_service_uuid = data_builder.get_class().get_method<j_advertise_data_builder_t(j_parcel_uuid_t)>("addServiceUuid");
-    auto parcel_uuid_class = java_class_t<"android/os/ParcelUuid">(jenv);
+    auto add_uuid = helper.get_class().get_method<void(j_uuid_t)>("addServiceUuid");
 
     for (auto *uuid_handle : *uuids) {
-      auto parcel_uuid = parcel_uuid_class(j_uuid_t(jenv, uuid_handle->handle));
-      add_service_uuid(data_builder, parcel_uuid);
+      add_uuid(helper, j_uuid_t(jenv, uuid_handle->handle));
     }
   }
-
-  auto set_include_name = data_builder.get_class().get_method<j_advertise_data_builder_t(bool)>("setIncludeDeviceName");
-  set_include_name(data_builder, name.has_value());
-
-  auto build_data = data_builder.get_class().get_method<j_advertise_data_t()>("build");
-  auto adv_data = build_data(data_builder);
 
   auto adv_callback_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/AdvertiseCallback">();
   auto adv_callback = adv_callback_class(static_cast<long>(server->id));
   server->advertise_callback = java_global_ref_t<j_advertise_callback_t>(jenv, adv_callback);
 
-  auto advertiser = j_bluetooth_le_advertiser_t(jenv, server->advertiser);
-  auto start_advertising = advertiser.get_class().get_method<void(j_advertise_settings_t, j_advertise_data_t, j_advertise_callback_t)>("startAdvertising");
-  start_advertising(advertiser, settings, adv_data, j_advertise_callback_t(jenv, server->advertise_callback));
+  auto start = helper.get_class().get_method<void(j_bluetooth_le_advertiser_t, j_advertise_callback_t)>("startAdvertising");
+  start(helper, j_bluetooth_le_advertiser_t(jenv, server->advertiser), j_advertise_callback_t(jenv, server->advertise_callback));
 }
 
 static void
