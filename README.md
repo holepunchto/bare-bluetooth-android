@@ -35,6 +35,7 @@ central.on('connect', (peripheral) => {
 ```
 
 <!-- bare-refgen:api start -->
+
 ## API
 
 ### BluetoothError
@@ -45,11 +46,11 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | A human-readable error message. |
-| `fn?` | `Function` | — | The function to omit from the captured stack trace (default `BluetoothError`). |
-| `code?` | `string` | — | The error code; defaults to `fn.name` (e.g. `SCAN_FAILED`). |
+| Parameter | Type       | Default | Description                                                                    |
+| --------- | ---------- | ------- | ------------------------------------------------------------------------------ |
+| `msg`     | `string`   | —       | A human-readable error message.                                                |
+| `fn?`     | `Function` | —       | The function to omit from the captured stack trace (default `BluetoothError`). |
+| `code?`   | `string`   | —       | The error code; defaults to `fn.name` (e.g. `SCAN_FAILED`).                    |
 
 #### `BluetoothError.ADVERTISE_FAILED(msg: string): BluetoothError`
 
@@ -57,9 +58,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `BluetoothError.CHANNEL_FAILED(msg: string): BluetoothError`
 
@@ -67,9 +68,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `BluetoothError.CHANNEL_PUBLISH_FAILED(msg: string): BluetoothError`
 
@@ -77,9 +78,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `BluetoothError.CONNECTION_FAILED(msg: string, id: string): BluetoothError`
 
@@ -87,10 +88,10 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | A human-readable error message. |
-| `id` | `string` | — | The id of the peripheral the connection attempt targeted. |
+| Parameter | Type     | Default | Description                                               |
+| --------- | -------- | ------- | --------------------------------------------------------- |
+| `msg`     | `string` | —       | A human-readable error message.                           |
+| `id`      | `string` | —       | The id of the peripheral the connection attempt targeted. |
 
 #### `BluetoothError.DISCONNECT(msg: string, id: string): BluetoothError`
 
@@ -98,10 +99,10 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | A human-readable error message. |
-| `id` | `string` | — | The id of the peripheral that disconnected. |
+| Parameter | Type     | Default | Description                                 |
+| --------- | -------- | ------- | ------------------------------------------- |
+| `msg`     | `string` | —       | A human-readable error message.             |
+| `id`      | `string` | —       | The id of the peripheral that disconnected. |
 
 #### `BluetoothError.DISCOVER_FAILED(msg: string): BluetoothError`
 
@@ -109,9 +110,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `BluetoothError.MTU_CHANGE_FAILED(msg: string): BluetoothError`
 
@@ -119,9 +120,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `BluetoothError.NOTIFY_FAILED(msg: string): BluetoothError`
 
@@ -129,9 +130,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `BluetoothError.NOTIFY_STATE_FAILED(msg: string): BluetoothError`
 
@@ -139,9 +140,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `BluetoothError.READ_FAILED(msg: string): BluetoothError`
 
@@ -149,9 +150,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `BluetoothError.SCAN_FAILED(msg: string): BluetoothError`
 
@@ -159,9 +160,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `BluetoothError.SERVICE_ADD_FAILED(msg: string): BluetoothError`
 
@@ -169,9 +170,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `BluetoothError.WRITE_FAILED(msg: string): BluetoothError`
 
@@ -179,9 +180,9 @@ central.on('connect', (peripheral) => {
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `msg` | `string` | — | — |
+| Parameter | Type     | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `msg`     | `string` | —       | —           |
 
 #### `code: string`
 
@@ -205,9 +206,9 @@ A duplex stream representing an L2CAP connection-oriented channel. Extends `Dupl
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `channelHandle` | `ArrayBuffer` | — | The native channel handle backing the stream; supplied internally when a channel opens, not usually passed directly. |
+| Parameter       | Type          | Default | Description                                                                                                          |
+| --------------- | ------------- | ------- | -------------------------------------------------------------------------------------------------------------------- |
+| `channelHandle` | `ArrayBuffer` | —       | The native channel handle backing the stream; supplied internally when a channel opens, not usually passed directly. |
 
 #### `peer: string | null`
 
@@ -231,11 +232,11 @@ Create a new GATT service definition.
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `uuid` | `string` | — | The service's UUID. |
-| `characteristics?` | `Characteristic[]` | — | The characteristics belonging to the service. |
-| `opts?` | `ServiceOptions` | — | Options; set `primary: true` to mark this a primary service. |
+| Parameter          | Type               | Default | Description                                                  |
+| ------------------ | ------------------ | ------- | ------------------------------------------------------------ |
+| `uuid`             | `string`           | —       | The service's UUID.                                          |
+| `characteristics?` | `Characteristic[]` | —       | The characteristics belonging to the service.                |
+| `opts?`            | `ServiceOptions`   | —       | Options; set `primary: true` to mark this a primary service. |
 
 #### `characteristics: Characteristic[]`
 
@@ -265,10 +266,10 @@ Create a new GATT characteristic definition.
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `uuid` | `string` | — | The characteristic's UUID. |
-| `opts?` | `CharacteristicOptions` | — | Options selecting the characteristic `properties`, `permissions`, and initial `value`. |
+| Parameter | Type                    | Default | Description                                                                            |
+| --------- | ----------------------- | ------- | -------------------------------------------------------------------------------------- |
+| `uuid`    | `string`                | —       | The characteristic's UUID.                                                             |
+| `opts?`   | `CharacteristicOptions` | —       | Options selecting the characteristic `properties`, `permissions`, and initial `value`. |
 
 #### `Characteristic.PROPERTY_INDICATE: number`
 
@@ -332,9 +333,9 @@ Add a `service` to the GATT server. The `'serviceAdd'` event is emitted when the
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `service` | `Service` | — | The `Service` to register with the GATT server. |
+| Parameter | Type      | Default | Description                                     |
+| --------- | --------- | ------- | ----------------------------------------------- |
+| `service` | `Service` | —       | The `Service` to register with the GATT server. |
 
 #### `Server.destroy(): void`
 
@@ -350,9 +351,9 @@ Publish an L2CAP channel. The `'channelPublish'` event is emitted with the assig
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `opts?` | `ChannelOptions` | — | Options for the L2CAP channel to publish. |
+| Parameter | Type             | Default | Description                               |
+| --------- | ---------------- | ------- | ----------------------------------------- |
+| `opts?`   | `ChannelOptions` | —       | Options for the L2CAP channel to publish. |
 
 #### `respondToRequest(request: ReadRequest, result: number, data?: Uint8Array): void`
 
@@ -362,11 +363,11 @@ Respond to a read or write `request` with a `result` code and optional `data`. U
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `request` | `ReadRequest` | — | The read or write request to respond to. |
-| `result` | `number` | — | The ATT result code; use the `Server.ATT_*` constants. |
-| `data?` | `Uint8Array` | — | The value to return for a read request; omit for write responses. |
+| Parameter | Type          | Default | Description                                                       |
+| --------- | ------------- | ------- | ----------------------------------------------------------------- |
+| `request` | `ReadRequest` | —       | The read or write request to respond to.                          |
+| `result`  | `number`      | —       | The ATT result code; use the `Server.ATT_*` constants.            |
+| `data?`   | `Uint8Array`  | —       | The value to return for a read request; omit for write responses. |
 
 #### `Server.ATT_INSUFFICIENT_RESOURCES: number`
 
@@ -474,9 +475,9 @@ Start advertising the server.
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `opts?` | `AdvertisingOptions` | — | Advertising options such as the local `name` and the `serviceUUIDs` to advertise. |
+| Parameter | Type                 | Default | Description                                                                       |
+| --------- | -------------------- | ------- | --------------------------------------------------------------------------------- |
+| `opts?`   | `AdvertisingOptions` | —       | Advertising options such as the local `name` and the `serviceUUIDs` to advertise. |
 
 #### `Server.state: BluetoothState`
 
@@ -498,9 +499,9 @@ Unpublish an L2CAP channel with the given `psm`.
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `psm` | `number` | — | The PSM of the channel to unpublish, as assigned when it was published. |
+| Parameter | Type     | Default | Description                                                             |
+| --------- | -------- | ------- | ----------------------------------------------------------------------- |
+| `psm`     | `number` | —       | The PSM of the channel to unpublish, as assigned when it was published. |
 
 #### `updateValue(characteristic: Characteristic, data: Uint8Array): boolean`
 
@@ -510,10 +511,10 @@ Update the value of `characteristic` with `data` and notify subscribed clients.
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `characteristic` | `Characteristic` | — | The characteristic whose value changed. |
-| `data` | `Uint8Array` | — | The new value to send to subscribed clients. |
+| Parameter        | Type             | Default | Description                                  |
+| ---------------- | ---------------- | ------- | -------------------------------------------- |
+| `characteristic` | `Characteristic` | —       | The characteristic whose value changed.      |
+| `data`           | `Uint8Array`     | —       | The new value to send to subscribed clients. |
 
 **Returns** `boolean` — Whether the notification was sent to subscribed clients successfully.
 
@@ -567,9 +568,9 @@ Connect to a discovered `peripheral`.
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `peripheral` | `Peripheral` | — | A discovered peripheral to connect to. |
+| Parameter    | Type         | Default | Description                            |
+| ------------ | ------------ | ------- | -------------------------------------- |
+| `peripheral` | `Peripheral` | —       | A discovered peripheral to connect to. |
 
 #### `Central.destroy(): void`
 
@@ -585,9 +586,9 @@ Disconnect from a connected `peripheral`.
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `peripheral` | `Peripheral` | — | The connected peripheral to disconnect from. |
+| Parameter    | Type         | Default | Description                                  |
+| ------------ | ------------ | ------- | -------------------------------------------- |
+| `peripheral` | `Peripheral` | —       | The connected peripheral to disconnect from. |
 
 #### `startScan(serviceUUIDs?: string[], opts?: { scanMode?: number }): void`
 
@@ -597,10 +598,10 @@ Start scanning for peripherals advertising the given `serviceUUIDs`. Pass `null`
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `serviceUUIDs?` | `string[]` | — | The service UUIDs to filter advertisements by; pass `null` to scan for all peripherals. |
-| `opts?` | `{ scanMode?: number }` | — | Options; `scanMode` selects the Android scan mode (one of the `Central.SCAN_MODE_*` constants). |
+| Parameter       | Type                    | Default | Description                                                                                     |
+| --------------- | ----------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `serviceUUIDs?` | `string[]`              | —       | The service UUIDs to filter advertisements by; pass `null` to scan for all peripherals.         |
+| `opts?`         | `{ scanMode?: number }` | —       | Options; `scanMode` selects the Android scan mode (one of the `Central.SCAN_MODE_*` constants). |
 
 #### `Central.state: BluetoothState`
 
@@ -624,9 +625,9 @@ Create a new peripheral instance from a `ScanResult`. Typically obtained via the
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `opts` | `PeripheralOptions` | — | Options carrying the `ScanResult` this peripheral is derived from. |
+| Parameter | Type                | Default | Description                                                        |
+| --------- | ------------------- | ------- | ------------------------------------------------------------------ |
+| `opts`    | `PeripheralOptions` | —       | Options carrying the `ScanResult` this peripheral is derived from. |
 
 #### `Peripheral.destroy(): void`
 
@@ -642,9 +643,9 @@ Discover characteristics for the given `service`. Results are emitted via the `'
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `service` | `Service` | — | The service to discover characteristics on. |
+| Parameter | Type      | Default | Description                                 |
+| --------- | --------- | ------- | ------------------------------------------- |
+| `service` | `Service` | —       | The service to discover characteristics on. |
 
 #### `discoverServices(): void`
 
@@ -672,9 +673,9 @@ Open an L2CAP channel to the peripheral using the given `psm`. The result is emi
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `psm` | `number` | — | The PSM (Protocol/Service Multiplexer) of the channel to open. |
+| Parameter | Type     | Default | Description                                                    |
+| --------- | -------- | ------- | -------------------------------------------------------------- |
+| `psm`     | `number` | —       | The PSM (Protocol/Service Multiplexer) of the channel to open. |
 
 #### `Peripheral.PROPERTY_INDICATE: number`
 
@@ -706,9 +707,9 @@ Read the value of `characteristic`. The result is emitted via the `'read'` event
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `characteristic` | `Characteristic` | — | The characteristic to read. |
+| Parameter        | Type             | Default | Description                 |
+| ---------------- | ---------------- | ------- | --------------------------- |
+| `characteristic` | `Characteristic` | —       | The characteristic to read. |
 
 #### `requestMtu(mtu: number): void`
 
@@ -718,9 +719,9 @@ Request a new MTU size. The result is emitted via the `'mtuChanged'` event.
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `mtu` | `number` | — | The desired ATT MTU size, in bytes. |
+| Parameter | Type     | Default | Description                         |
+| --------- | -------- | ------- | ----------------------------------- |
+| `mtu`     | `number` | —       | The desired ATT MTU size, in bytes. |
 
 #### `rssi: number`
 
@@ -748,9 +749,9 @@ Subscribe to notifications for `characteristic`.
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `characteristic` | `Characteristic` | — | The characteristic to start receiving notifications for. |
+| Parameter        | Type             | Default | Description                                              |
+| ---------------- | ---------------- | ------- | -------------------------------------------------------- |
+| `characteristic` | `Characteristic` | —       | The characteristic to start receiving notifications for. |
 
 #### `unsubscribe(characteristic: Characteristic): void`
 
@@ -760,9 +761,9 @@ Unsubscribe from notifications for `characteristic`.
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `characteristic` | `Characteristic` | — | The characteristic to stop receiving notifications for. |
+| Parameter        | Type             | Default | Description                                             |
+| ---------------- | ---------------- | ------- | ------------------------------------------------------- |
+| `characteristic` | `Characteristic` | —       | The characteristic to stop receiving notifications for. |
 
 #### `write(characteristic: Characteristic, data: Uint8Array, withResponse?: boolean): void`
 
@@ -772,11 +773,11 @@ Write `data` to `characteristic`. If `withResponse` is `true` (the default), a w
 
 **Parameters**
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `characteristic` | `Characteristic` | — | The characteristic to write to. |
-| `data` | `Uint8Array` | — | The bytes to write. |
-| `withResponse?` | `boolean` | — | Whether a write confirmation is requested (default `true`). |
+| Parameter        | Type             | Default | Description                                                 |
+| ---------------- | ---------------- | ------- | ----------------------------------------------------------- |
+| `characteristic` | `Characteristic` | —       | The characteristic to write to.                             |
+| `data`           | `Uint8Array`     | —       | The bytes to write.                                         |
+| `withResponse?`  | `boolean`        | —       | Whether a write confirmation is requested (default `true`). |
 
 ### Types
 
@@ -917,6 +918,7 @@ class Device {
   name: string | null
 }
 ```
+
 <!-- bare-refgen:api end -->
 
 ## License
