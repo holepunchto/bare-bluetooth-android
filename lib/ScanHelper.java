@@ -10,10 +10,12 @@ import java.util.UUID;
 
 public final class ScanHelper {
   private final int scanMode;
+  private final int callbackType;
   private final List<UUID> uuids = new ArrayList<>();
 
-  public ScanHelper(int scanMode) {
+  public ScanHelper(int scanMode, int callbackType) {
     this.scanMode = scanMode;
+    this.callbackType = callbackType;
   }
 
   public void
@@ -25,6 +27,7 @@ public final class ScanHelper {
   startScan(BluetoothLeScanner scanner, android.bluetooth.le.ScanCallback callback) {
     ScanSettings settings = new ScanSettings.Builder()
       .setScanMode(scanMode)
+      .setCallbackType(callbackType)
       .build();
 
     List<ScanFilter> filters = null;

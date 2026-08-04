@@ -52,11 +52,16 @@ Options include:
 
 ```js
 opts = {
-  scanMode: null
+  scanMode: null,
+  callbackType: null
 }
 ```
 
 Set `scanMode` to one of `Central.SCAN_MODE_OPPORTUNISTIC`, `Central.SCAN_MODE_LOW_POWER`, `Central.SCAN_MODE_BALANCED`, or `Central.SCAN_MODE_LOW_LATENCY`.
+
+Set `callbackType` to one of `Central.CALLBACK_TYPE_ALL_MATCHES`, `Central.CALLBACK_TYPE_FIRST_MATCH`, or `Central.CALLBACK_TYPE_MATCH_LOST`. Defaults to `CALLBACK_TYPE_ALL_MATCHES`, which emits `'discover'` for every advertising packet received — a peripheral advertising at 20ms will emit dozens of times per second.
+
+`CALLBACK_TYPE_FIRST_MATCH` emits once per peripheral instead, which is what iOS does by default. It is offloaded to the Bluetooth controller rather than emulated: it requires `serviceUUIDs` to be set, and on hardware that does not support it the scan fails with `SCAN_FAILED_FEATURE_UNSUPPORTED` (4) or `SCAN_FAILED_OUT_OF_HARDWARE_RESOURCES` (5), delivered as an `'error'` event. Be ready to fall back to `CALLBACK_TYPE_ALL_MATCHES`. Note that a peripheral is then not reported again until it is lost and rediscovered, so `rssi` no longer refreshes.
 
 #### `central.stopScan()`
 
@@ -107,6 +112,14 @@ Emitted when scanning fails. The listener receives the `errorCode`.
 #### `Central.SCAN_MODE_LOW_LATENCY`
 
 Scan mode constants for use with `central.startScan()`.
+
+#### `Central.CALLBACK_TYPE_ALL_MATCHES`
+
+#### `Central.CALLBACK_TYPE_FIRST_MATCH`
+
+#### `Central.CALLBACK_TYPE_MATCH_LOST`
+
+Callback type constants for use with `central.startScan()`.
 
 #### `const peripheral = new Peripheral({ scanResult })`
 
