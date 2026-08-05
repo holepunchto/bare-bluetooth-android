@@ -1347,12 +1347,16 @@ bare_bluetooth_android_central_start_scan(
   js_env_t *env,
   bare_bluetooth_android_central_t *central,
   std::optional<std::vector<bare_bluetooth_android_uuid_handle_t *>> uuids,
-  std::optional<int32_t> scan_mode
+  std::optional<int32_t> scan_mode,
+  std::optional<int32_t> callback_type
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
   auto helper_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/ScanHelper">();
-  auto helper = helper_class(static_cast<int>(scan_mode.value_or(2)));
+  auto helper = helper_class(
+    static_cast<int>(scan_mode.value_or(2)),
+    static_cast<int>(callback_type.value_or(1))
+  );
 
   if (uuids) {
     auto add_uuid = helper.get_class().get_method<void(j_uuid_t)>("addServiceUuid");
@@ -4454,6 +4458,10 @@ bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
   V("SCAN_MODE_BALANCED", 1)
   V("SCAN_MODE_LOW_LATENCY", 2)
   V("SCAN_MODE_OPPORTUNISTIC", -1)
+
+  V("CALLBACK_TYPE_ALL_MATCHES", 1)
+  V("CALLBACK_TYPE_FIRST_MATCH", 2)
+  V("CALLBACK_TYPE_MATCH_LOST", 4)
 #undef V
 
   return exports;
