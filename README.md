@@ -52,8 +52,8 @@ Options include:
 
 ```js
 opts = {
-  scanMode: null,
-  callbackType: null
+  scanMode,
+  callbackType
 }
 ```
 
