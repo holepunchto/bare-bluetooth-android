@@ -36,7 +36,9 @@ central.on('connect', (peripheral) => {
 
 ## API
 
-See the [full API reference](https://docs.pears.com/reference/bare/modules/bare-bluetooth-android).
+See the [`bare-bluetooth-android` reference][reference].
+
+[reference]: https://docs.pears.com/reference/bare/modules/bare-bluetooth-android
 
 ## License
 
