@@ -20,7 +20,8 @@ export interface PeripheralEventMap extends EventMap {
    */
   read: [characteristic: Characteristic | null, data: Uint8Array]
   /**
-   * Write `data` to `characteristic`. If `withResponse` is `true` (the default), a write confirmation is requested.
+   * Write `data` to `characteristic`. If `withResponse` is `true` (the default), a write
+   * confirmation is requested.
    * @param characteristic - The characteristic to write to.
    * @param data - The bytes to write.
    * @param withResponse - Whether a write confirmation is requested (default `true`).
@@ -47,14 +48,23 @@ export default class Peripheral extends EventEmitter<PeripheralEventMap> {
   readonly scanResult: ScanResult
   /** The unique identifier of the peripheral, equal to `scanResult.device.address`. */
   readonly id: string
-  /** The advertised name of the peripheral, or `null` if unavailable. Equal to `scanResult.device.name`. */
+  /**
+   * The advertised name of the peripheral, or `null` if unavailable. Equal to
+   * `scanResult.device.name`.
+   */
   readonly name: string | null
   /** The signal strength of the most recent advertisement, equal to `scanResult.rssi`. */
   readonly rssi: number
-  /** The advertised service data, or `null` when the advertisement carried no scan record or no service data. */
+  /**
+   * The advertised service data, or `null` when the advertisement carried no scan record or no
+   * service data.
+   */
   readonly serviceData: ServiceData | null
 
-  /** Discover services offered by the peripheral. Results are emitted via the `'servicesDiscover'` event. */
+  /**
+   * Discover services offered by the peripheral. Results are emitted via the `'servicesDiscover'`
+   * event.
+   */
   discoverServices(): void
   /**
    * @param service - The service to discover characteristics on.

@@ -7,7 +7,10 @@ export default class BluetoothError extends Error {
   constructor(msg: string, fn?: Function, code?: string)
 
   readonly code: string
-  /** The advertised name of the peripheral, or `null` if unavailable. Equal to `scanResult.device.name`. */
+  /**
+   * The advertised name of the peripheral, or `null` if unavailable. Equal to
+   * `scanResult.device.name`.
+   */
   readonly name: 'BluetoothError'
   /** The unique identifier of the peripheral, equal to `scanResult.device.address`. */
   id?: string

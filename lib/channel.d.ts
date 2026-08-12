@@ -2,7 +2,8 @@ import { Duplex } from 'bare-stream'
 
 export default class L2CAPChannel extends Duplex {
   /**
-   * @param channelHandle - The native channel handle backing the stream; supplied internally when a channel opens, not usually passed directly.
+   * @param channelHandle - The native channel handle backing the stream; supplied internally when a
+   * channel opens, not usually passed directly.
    */
   constructor(channelHandle: ArrayBuffer)
 

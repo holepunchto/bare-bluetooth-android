@@ -1,7 +1,8 @@
 export default class Characteristic {
   /**
    * @param uuid - The characteristic's UUID.
-   * @param opts - Options selecting the characteristic `properties`, `permissions`, and initial `value`.
+   * @param opts - Options selecting the characteristic `properties`, `permissions`, and initial
+   * `value`.
    */
   constructor(uuid: string, opts?: CharacteristicOptions)
 
@@ -29,7 +30,8 @@ export interface CharacteristicOptions {
    */
   read?: boolean
   /**
-   * Write `data` to `characteristic`. If `withResponse` is `true` (the default), a write confirmation is requested.
+   * Write `data` to `characteristic`. If `withResponse` is `true` (the default), a write
+   * confirmation is requested.
    * @param characteristic - The characteristic to write to.
    * @param data - The bytes to write.
    * @param withResponse - Whether a write confirmation is requested (default `true`).

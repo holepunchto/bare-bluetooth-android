@@ -7,7 +7,10 @@ import BluetoothError from './errors'
 export type BluetoothState = 'off' | 'turningOn' | 'on' | 'turningOff'
 
 export interface AdvertisingOptions {
-  /** The advertised name of the peripheral, or `null` if unavailable. Equal to `scanResult.device.name`. */
+  /**
+   * The advertised name of the peripheral, or `null` if unavailable. Equal to
+   * `scanResult.device.name`.
+   */
   name?: string
   serviceUUIDs?: string[]
 }
@@ -61,7 +64,9 @@ declare class Server extends EventEmitter<ServerEventMap> {
   /** Create a new BLE peripheral server for advertising services and handling client requests. */
   constructor()
 
-  /** The current Bluetooth adapter state. One of `'off'`, `'turningOn'`, `'on'`, or `'turningOff'`. */
+  /**
+   * The current Bluetooth adapter state. One of `'off'`, `'turningOn'`, `'on'`, or `'turningOff'`.
+   */
   readonly state: BluetoothState
 
   /**

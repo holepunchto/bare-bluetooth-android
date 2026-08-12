@@ -24,12 +24,16 @@ export default class Central extends EventEmitter<CentralEventMap> {
   /** Create a new BLE central manager for scanning and connecting to peripherals. */
   constructor()
 
-  /** The current Bluetooth adapter state. One of `'off'`, `'turningOn'`, `'on'`, or `'turningOff'`. */
+  /**
+   * The current Bluetooth adapter state. One of `'off'`, `'turningOn'`, `'on'`, or `'turningOff'`.
+   */
   readonly state: BluetoothState
 
   /**
-   * @param serviceUUIDs - The service UUIDs to filter advertisements by; pass `null` to scan for all peripherals.
-   * @param opts - Options; `scanMode` selects the Android scan mode (one of the `Central.SCAN_MODE_*` constants).
+   * @param serviceUUIDs - The service UUIDs to filter advertisements by; pass `null` to scan for
+   * all peripherals.
+   * @param opts - Options; `scanMode` selects the Android scan mode (one of the
+   * `Central.SCAN_MODE_*` constants).
    */
   startScan(serviceUUIDs?: string[], opts?: { scanMode?: number; callbackType?: number }): void
   /** Stop scanning for peripherals. */
@@ -42,7 +46,10 @@ export default class Central extends EventEmitter<CentralEventMap> {
    * @param peripheral - The connected peripheral to disconnect from.
    */
   disconnect(peripheral: Peripheral): void
-  /** Destroy the central manager, stopping any active scan and disconnecting all connected peripherals. */
+  /**
+   * Destroy the central manager, stopping any active scan and disconnecting all connected
+   * peripherals.
+   */
   destroy(): void
 
   static readonly STATE_OFF: number
