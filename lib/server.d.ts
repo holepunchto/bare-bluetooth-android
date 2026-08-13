@@ -8,8 +8,8 @@ export type BluetoothState = 'off' | 'turningOn' | 'on' | 'turningOff'
 
 export interface AdvertisingOptions {
   /**
-   * The advertised name of the peripheral, or `null` if unavailable. Equal to
-   * `scanResult.device.name`.
+   * When set, the adapter's own device name is included in the advertisement; only the presence of
+   * the option is used, not the string itself.
    */
   name?: string
   serviceUUIDs?: string[]
@@ -43,13 +43,13 @@ export interface ServerEventMap extends EventMap {
   readRequest: [request: ReadRequest]
   writeRequest: [requests: WriteRequest[]]
   /**
-   * Subscribe to notifications for `characteristic`.
-   * @param characteristic - The characteristic to start receiving notifications for.
+   * Emitted when a connected device subscribes to notifications for a characteristic, carrying the
+   * address of the device and the UUID of the characteristic.
    */
   subscribe: [deviceAddress: string, characteristicUuid: string]
   /**
-   * Unsubscribe from notifications for `characteristic`.
-   * @param characteristic - The characteristic to stop receiving notifications for.
+   * Emitted when a connected device unsubscribes from notifications for a characteristic, carrying
+   * the address of the device and the UUID of the characteristic.
    */
   unsubscribe: [deviceAddress: string, characteristicUuid: string]
   connecting: [deviceAddress: string]

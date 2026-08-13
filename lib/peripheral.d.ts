@@ -15,26 +15,20 @@ export interface PeripheralEventMap extends EventMap {
   servicesDiscover: [services: Service[]]
   characteristicsDiscover: [service: Service | null, characteristics: Characteristic[]]
   /**
-   * Read the value of `characteristic`. The result is emitted via the `'read'` event.
-   * @param characteristic - The characteristic to read.
+   * Emitted when a read completes, carrying the characteristic that was read, or `null` if it is
+   * not recognised, and the bytes returned.
    */
   read: [characteristic: Characteristic | null, data: Uint8Array]
   /**
-   * Write `data` to `characteristic`. If `withResponse` is `true` (the default), a write
-   * confirmation is requested.
-   * @param characteristic - The characteristic to write to.
-   * @param data - The bytes to write.
-   * @param withResponse - Whether a write confirmation is requested (default `true`).
+   * Emitted when a write completes, carrying the characteristic that was written, or `null` if it
+   * is not recognised.
    */
   write: [characteristic: Characteristic | null]
   notify: [characteristic: Characteristic | null, data: Uint8Array]
   notifyState: [characteristic: Characteristic | null, isNotifying: boolean]
   channelOpen: [channel: L2CAPChannel]
   mtuChanged: [mtu: number]
-  /**
-   * Disconnect from a connected `peripheral`.
-   * @param peripheral - The connected peripheral to disconnect from.
-   */
+  /** Emitted when the peripheral has disconnected without error. */
   disconnect: []
   error: [error: BluetoothError]
 }

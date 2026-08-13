@@ -24,18 +24,9 @@ export default class Characteristic {
 }
 
 export interface CharacteristicOptions {
-  /**
-   * Read the value of `characteristic`. The result is emitted via the `'read'` event.
-   * @param characteristic - The characteristic to read.
-   */
+  /** Whether to set the `PROPERTY_READ` flag in the characteristic's `properties`. */
   read?: boolean
-  /**
-   * Write `data` to `characteristic`. If `withResponse` is `true` (the default), a write
-   * confirmation is requested.
-   * @param characteristic - The characteristic to write to.
-   * @param data - The bytes to write.
-   * @param withResponse - Whether a write confirmation is requested (default `true`).
-   */
+  /** Whether to set the `PROPERTY_WRITE` flag in the characteristic's `properties`. */
   write?: boolean
   writeWithoutResponse?: boolean
   notify?: boolean

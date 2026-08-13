@@ -4,7 +4,7 @@ export default class Service {
   /**
    * @param uuid - The service's UUID.
    * @param characteristics - The characteristics belonging to the service.
-   * @param opts - Options; set `primary: true` to mark this a primary service.
+   * @param opts - Options; services are primary unless `primary: false` is set.
    */
   constructor(uuid: string, characteristics?: Characteristic[], opts?: ServiceOptions)
 
