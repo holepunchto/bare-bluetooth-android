@@ -1383,6 +1383,45 @@ bare_bluetooth_android_central_stop_scan(js_env_t *env, bare_bluetooth_android_c
   stop_scan(central->scanner, j_scan_callback_t(jenv, central->scan_callback));
 }
 
+// Returns the bonded devices as a flat (address, name) pair list.
+//
+// Bonded devices are known to the adapter without scanning, so a central can
+// reconnect to one that is not currently advertising. Devices with no name
+// report an empty string rather than being dropped.
+static std::vector<std::string>
+bare_bluetooth_android_central_get_bonded_devices(
+  js_env_t *env,
+  bare_bluetooth_android_central_t *central
+) {
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+
+  auto helper = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/DeviceHelper">();
+  auto bonded_devices = helper.get_static_method<std::string(j_bluetooth_adapter_t)>("bondedDevices");
+
+  auto records = bonded_devices(helper, j_bluetooth_adapter_t(jenv, central->adapter));
+
+  std::vector<std::string> result;
+
+  size_t start = 0;
+
+  while (start < records.length()) {
+    auto end = records.find('\n', start);
+    if (end == std::string::npos) end = records.length();
+
+    auto record = records.substr(start, end - start);
+    auto tab = record.find('\t');
+
+    if (tab != std::string::npos) {
+      result.push_back(record.substr(0, tab));
+      result.push_back(record.substr(tab + 1));
+    }
+
+    start = end + 1;
+  }
+
+  return result;
+}
+
 static void
 bare_bluetooth_android_central_connect(
   js_env_t *env,
@@ -4367,6 +4406,7 @@ bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
   V("centralInit", bare_bluetooth_android_central_init)
   V("centralStartScan", bare_bluetooth_android_central_start_scan)
   V("centralStopScan", bare_bluetooth_android_central_stop_scan)
+  V("centralGetBondedDevices", bare_bluetooth_android_central_get_bonded_devices)
   V("centralConnect", bare_bluetooth_android_central_connect)
   V("centralDisconnect", bare_bluetooth_android_central_disconnect)
   V("centralDestroy", bare_bluetooth_android_central_destroy)
