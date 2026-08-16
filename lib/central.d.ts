@@ -19,7 +19,16 @@ export default class Central extends EventEmitter<CentralEventMap> {
 
   startScan(serviceUUIDs?: string[], opts?: { scanMode?: number; callbackType?: number }): void
   stopScan(): void
+  /**
+   * Bonded devices, known to the adapter without scanning. `ids` optionally
+   * filters the result.
+   */
+  knownPeripherals(opts?: { ids?: string[] }): Peripheral[]
   connect(peripheral: Peripheral): void
+  /**
+   * Connect to a known address without scanning for it first.
+   */
+  connectById(id: string): Peripheral
   disconnect(peripheral: Peripheral): void
   destroy(): void
 

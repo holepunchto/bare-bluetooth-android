@@ -43,6 +43,7 @@ add_dex(
     lib/ScanHelper.java
     lib/GattCallback.java
     lib/GattServiceHelper.java
+    lib/DeviceHelper.java
     lib/GattServerCallback.java
     lib/AdvertiseCallback.java
     lib/AdvertiseHelper.java
