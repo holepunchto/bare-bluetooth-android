@@ -1398,7 +1398,7 @@ bare_bluetooth_android_central_get_bonded_devices(
   auto helper = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/DeviceHelper">();
   auto bonded_devices = helper.get_static_method<std::string(j_bluetooth_adapter_t)>("bondedDevices");
 
-  auto records = bonded_devices(helper, j_bluetooth_adapter_t(jenv, central->adapter));
+  auto records = bonded_devices(j_bluetooth_adapter_t(jenv, central->adapter));
 
   std::vector<std::string> result;
 

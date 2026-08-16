@@ -4,14 +4,14 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import java.util.Set;
 
-final class DeviceHelper {
+public final class DeviceHelper {
   // Returns the bonded devices as "address\tname" records separated by
   // newlines. A single delimited String keeps the JNI surface narrow, matching
   // how the other helpers here avoid marshalling arrays.
   //
   // Classic-only devices are skipped: they have no GATT server, so they are
   // never something a central can connect to.
-  static String
+  public static String
   bondedDevices(BluetoothAdapter adapter) {
     Set<BluetoothDevice> devices = adapter.getBondedDevices();
 
