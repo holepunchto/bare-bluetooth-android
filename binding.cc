@@ -327,6 +327,7 @@ struct bare_bluetooth_android_peripheral_t {
 
   java_global_ref_t<j_bluetooth_gatt_t> gatt;
   java_global_ref_t<j_bluetooth_device_t> device;
+  java_global_ref_t<j_hp_gatt_callback_t> gatt_callback;
   std::vector<java_global_ref_t<j_bluetooth_gatt_service_t>> services;
   std::vector<std::vector<java_global_ref_t<j_bluetooth_gatt_characteristic_t>>> service_characteristics;
 
@@ -1414,6 +1415,10 @@ bare_bluetooth_android_central_disconnect(
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
+  auto callback = j_hp_gatt_callback_t(jenv, gatt_handle->gatt_callback);
+  auto clear_queue = callback.get_class().get_method<void()>("clearQueue");
+  clear_queue(callback);
+
   auto gatt = j_bluetooth_gatt_t(jenv, gatt_handle->handle);
 
   auto disconnect = gatt.get_class().get_method<void()>("disconnect");
@@ -2188,6 +2193,7 @@ bare_bluetooth_android_peripheral_init(
     auto gatt_callback = j_hp_gatt_callback_t(jenv, gatt_handle->gatt_callback);
     auto set_peripheral_id = gatt_callback.get_class().get_method<void(long)>("setPeripheralId");
     set_peripheral_id(gatt_callback, static_cast<long>(peripheral->id));
+    peripheral->gatt_callback = java_global_ref_t<j_hp_gatt_callback_t>(jenv, gatt_callback);
   }
 
   err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &peripheral->ctx);
@@ -2251,9 +2257,9 @@ bare_bluetooth_android_peripheral_name(js_env_t *env, bare_bluetooth_android_per
 static bool
 bare_bluetooth_android_peripheral_discover_services(js_env_t *env, bare_bluetooth_android_peripheral_t *peripheral) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
-  auto gatt = j_bluetooth_gatt_t(jenv, peripheral->gatt);
-  auto discover = gatt.get_class().get_method<bool()>("discoverServices");
-  return discover(gatt);
+  auto callback = j_hp_gatt_callback_t(jenv, peripheral->gatt_callback);
+  auto discover = callback.get_class().get_method<bool(j_bluetooth_gatt_t)>("discoverServices");
+  return discover(callback, j_bluetooth_gatt_t(jenv, peripheral->gatt));
 }
 
 static void
@@ -2293,10 +2299,10 @@ bare_bluetooth_android_peripheral_read(
   bare_bluetooth_android_characteristic_handle_t *char_handle
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
-  auto gatt = j_bluetooth_gatt_t(jenv, peripheral->gatt);
+  auto callback = j_hp_gatt_callback_t(jenv, peripheral->gatt_callback);
   auto characteristic = j_bluetooth_gatt_characteristic_t(jenv, char_handle->handle);
-  auto read_characteristic = gatt.get_class().get_method<bool(j_bluetooth_gatt_characteristic_t)>("readCharacteristic");
-  return read_characteristic(gatt, characteristic);
+  auto read = callback.get_class().get_method<bool(j_bluetooth_gatt_t, j_bluetooth_gatt_characteristic_t)>("read");
+  return read(callback, j_bluetooth_gatt_t(jenv, peripheral->gatt), characteristic);
 }
 
 static bool
@@ -2308,18 +2314,13 @@ bare_bluetooth_android_peripheral_write(
   bool with_response
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
-  auto gatt = j_bluetooth_gatt_t(jenv, peripheral->gatt);
+  auto callback = j_hp_gatt_callback_t(jenv, peripheral->gatt_callback);
   auto characteristic = j_bluetooth_gatt_characteristic_t(jenv, char_handle->handle);
 
-  auto set_write_type = characteristic.get_class().get_method<void(int)>("setWriteType");
-  set_write_type(characteristic, with_response ? 2 : 1);
-
   auto byte_array = bare_bluetooth_android_make_byte_array(jenv, data.data(), data.size());
-  auto set_value = characteristic.get_class().get_method<bool(java_array_t<unsigned char>)>("setValue");
-  set_value(characteristic, byte_array);
 
-  auto write_characteristic = gatt.get_class().get_method<bool(j_bluetooth_gatt_characteristic_t)>("writeCharacteristic");
-  return write_characteristic(gatt, characteristic);
+  auto write = callback.get_class().get_method<bool(j_bluetooth_gatt_t, j_bluetooth_gatt_characteristic_t, java_array_t<unsigned char>, bool)>("write");
+  return write(callback, j_bluetooth_gatt_t(jenv, peripheral->gatt), characteristic, byte_array, with_response);
 }
 
 static bool
@@ -2330,12 +2331,14 @@ bare_bluetooth_android_peripheral_subscribe(
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
-  auto helper = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattServiceHelper">();
-  auto subscribe = helper.get_static_method<bool(j_bluetooth_gatt_t, j_bluetooth_gatt_characteristic_t)>("subscribe");
+  auto callback = j_hp_gatt_callback_t(jenv, peripheral->gatt_callback);
+  auto set_notify = callback.get_class().get_method<bool(j_bluetooth_gatt_t, j_bluetooth_gatt_characteristic_t, bool)>("setNotify");
 
-  return subscribe(
+  return set_notify(
+    callback,
     j_bluetooth_gatt_t(jenv, peripheral->gatt),
-    j_bluetooth_gatt_characteristic_t(jenv, char_handle->handle)
+    j_bluetooth_gatt_characteristic_t(jenv, char_handle->handle),
+    true
   );
 }
 
@@ -2347,12 +2350,14 @@ bare_bluetooth_android_peripheral_unsubscribe(
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
 
-  auto helper = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattServiceHelper">();
-  auto unsubscribe = helper.get_static_method<bool(j_bluetooth_gatt_t, j_bluetooth_gatt_characteristic_t)>("unsubscribe");
+  auto callback = j_hp_gatt_callback_t(jenv, peripheral->gatt_callback);
+  auto set_notify = callback.get_class().get_method<bool(j_bluetooth_gatt_t, j_bluetooth_gatt_characteristic_t, bool)>("setNotify");
 
-  return unsubscribe(
+  return set_notify(
+    callback,
     j_bluetooth_gatt_t(jenv, peripheral->gatt),
-    j_bluetooth_gatt_characteristic_t(jenv, char_handle->handle)
+    j_bluetooth_gatt_characteristic_t(jenv, char_handle->handle),
+    false
   );
 }
 
@@ -2363,9 +2368,9 @@ bare_bluetooth_android_peripheral_request_mtu(
   int32_t mtu
 ) {
   auto jenv = bare_bluetooth_android_jvm().get_env().value();
-  auto gatt = j_bluetooth_gatt_t(jenv, peripheral->gatt);
-  auto request_mtu = gatt.get_class().get_method<bool(int)>("requestMtu");
-  return request_mtu(gatt, mtu);
+  auto callback = j_hp_gatt_callback_t(jenv, peripheral->gatt_callback);
+  auto request_mtu = callback.get_class().get_method<bool(j_bluetooth_gatt_t, int)>("requestMtu");
+  return request_mtu(callback, j_bluetooth_gatt_t(jenv, peripheral->gatt), mtu);
 }
 
 struct bare_bluetooth_android_peripheral_l2cap_open_req_t {
