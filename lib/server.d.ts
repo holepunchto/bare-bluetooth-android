@@ -7,6 +7,10 @@ import BluetoothError from './errors'
 export type BluetoothState = 'off' | 'turningOn' | 'on' | 'turningOff'
 
 export interface AdvertisingOptions {
+  /**
+   * When set, the adapter's own device name is included in the advertisement; only the presence of
+   * the option is used, not the string itself.
+   */
   name?: string
   serviceUUIDs?: string[]
 }
@@ -38,7 +42,15 @@ export interface ServerEventMap extends EventMap {
   channelOpen: [channel: L2CAPChannel]
   readRequest: [request: ReadRequest]
   writeRequest: [requests: WriteRequest[]]
+  /**
+   * Emitted when a connected device subscribes to notifications for a characteristic, carrying the
+   * address of the device and the UUID of the characteristic.
+   */
   subscribe: [deviceAddress: string, characteristicUuid: string]
+  /**
+   * Emitted when a connected device unsubscribes from notifications for a characteristic, carrying
+   * the address of the device and the UUID of the characteristic.
+   */
   unsubscribe: [deviceAddress: string, characteristicUuid: string]
   connecting: [deviceAddress: string]
   connected: [deviceAddress: string]
@@ -49,17 +61,45 @@ export interface ServerEventMap extends EventMap {
 }
 
 declare class Server extends EventEmitter<ServerEventMap> {
+  /** Create a new BLE peripheral server for advertising services and handling client requests. */
   constructor()
 
+  /**
+   * The current Bluetooth adapter state. One of `'off'`, `'turningOn'`, `'on'`, or `'turningOff'`.
+   */
   readonly state: BluetoothState
 
+  /**
+   * @param service - The `Service` to register with the GATT server.
+   */
   addService(service: Service): void
+  /**
+   * @param opts - Advertising options such as the local `name` and the `serviceUUIDs` to advertise.
+   */
   startAdvertising(opts?: AdvertisingOptions): void
+  /** Stop advertising. */
   stopAdvertising(): void
+  /**
+   * @param request - The read or write request to respond to.
+   * @param result - The ATT result code; use the `Server.ATT_*` constants.
+   * @param data - The value to return for a read request; omit for write responses.
+   */
   respondToRequest(request: ReadRequest, result: number, data?: Uint8Array): void
+  /**
+   * @param characteristic - The characteristic whose value changed.
+   * @param data - The new value to send to subscribed clients.
+   * @returns Whether the notification was sent to subscribed clients successfully.
+   */
   updateValue(characteristic: Characteristic, data: Uint8Array): boolean
+  /**
+   * @param opts - Options for the L2CAP channel to publish.
+   */
   publishChannel(opts?: ChannelOptions): void
+  /**
+   * @param psm - The PSM of the channel to unpublish, as assigned when it was published.
+   */
   unpublishChannel(psm: number): void
+  /** Destroy the server, stopping advertising and unpublishing all L2CAP channels. */
   destroy(): void
 
   static readonly STATE_OFF: number
@@ -71,11 +111,13 @@ declare class Server extends EventEmitter<ServerEventMap> {
   static readonly PROPERTY_WRITE_WITHOUT_RESPONSE: number
   static readonly PROPERTY_WRITE: number
   static readonly PROPERTY_NOTIFY: number
+  /** Characteristic property constants. */
   static readonly PROPERTY_INDICATE: number
 
   static readonly PERMISSION_READABLE: number
   static readonly PERMISSION_WRITEABLE: number
   static readonly PERMISSION_READ_ENCRYPTED: number
+  /** Characteristic permission constants. */
   static readonly PERMISSION_WRITE_ENCRYPTED: number
 
   static readonly CONNECTION_STATE_DISCONNECTED: number
@@ -88,6 +130,7 @@ declare class Server extends EventEmitter<ServerEventMap> {
   static readonly ATT_READ_NOT_PERMITTED: number
   static readonly ATT_WRITE_NOT_PERMITTED: number
   static readonly ATT_INSUFFICIENT_RESOURCES: number
+  /** ATT result codes for use with `server.respondToRequest()`. */
   static readonly ATT_UNLIKELY_ERROR: number
 }
 
