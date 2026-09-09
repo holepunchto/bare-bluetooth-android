@@ -73,7 +73,12 @@ using j_hp_scan_helper_t = java_object_t<"to/holepunch/bare/bluetooth/ScanHelper
 
 static inline java_vm_t
 bare_bluetooth_android_jvm() {
-  return java_vm_t::get_created().value();
+  JavaVM *jvm = nullptr;
+  int err = bare_context_get("bare.android.jvm.v1", reinterpret_cast<void **>(&jvm));
+  assert(err == 0);
+  assert(jvm != nullptr);
+
+  return java_vm_t(jvm);
 }
 
 static inline java_class_loader_t
