@@ -71,6 +71,8 @@ using j_hp_l2cap_reader_t = java_object_t<"to/holepunch/bare/bluetooth/L2capRead
 using j_hp_scan_callback_t = java_object_t<"to/holepunch/bare/bluetooth/ScanCallback">;
 using j_hp_scan_helper_t = java_object_t<"to/holepunch/bare/bluetooth/ScanHelper">;
 
+static uv_once_t bare_bluetooth_android__init_guard = UV_ONCE_INIT;
+
 static java_vm_t bare_bluetooth_android_jvm_;
 
 static inline java_vm_t &
@@ -4356,8 +4358,8 @@ bare_bluetooth_android_register_natives() {
   }
 }
 
-static js_value_t *
-bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
+static void
+bare_bluetooth_android__on_init(void) {
   int err;
 
   JavaVM *jvm = nullptr;
@@ -4368,6 +4370,13 @@ bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
   bare_bluetooth_android_jvm_ = java_vm_t(jvm);
 
   bare_bluetooth_android_register_natives();
+}
+
+static js_value_t *
+bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
+  int err;
+
+  uv_once(&bare_bluetooth_android__init_guard, bare_bluetooth_android__on_init);
 
 #define V(name, fn) \
   { \
