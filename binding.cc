@@ -2184,18 +2184,6 @@ bare_bluetooth_android_peripheral_init(
   auto device_local = get_device(gatt_obj);
   peripheral->device = java_global_ref_t<j_bluetooth_device_t>(jenv, device_local);
 
-  {
-    std::lock_guard<std::mutex> lock(bare_bluetooth_android_peripherals_mutex);
-    peripheral->id = bare_bluetooth_android_next_peripheral_id++;
-    bare_bluetooth_android_peripherals.emplace(peripheral->id, peripheral);
-  }
-
-  {
-    auto gatt_callback = j_hp_gatt_callback_t(jenv, gatt_handle->gatt_callback);
-    auto set_peripheral_id = gatt_callback.get_class().get_method<void(long)>("setPeripheralId");
-    set_peripheral_id(gatt_callback, static_cast<long>(peripheral->id));
-  }
-
   err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &peripheral->ctx);
   assert(err == 0);
 
@@ -2225,6 +2213,18 @@ bare_bluetooth_android_peripheral_init(
 
   err = js_add_deferred_teardown_callback(env, bare_bluetooth_android_peripheral__on_teardown, (void *) peripheral, &peripheral->teardown);
   assert(err == 0);
+
+  {
+    std::lock_guard<std::mutex> lock(bare_bluetooth_android_peripherals_mutex);
+    peripheral->id = bare_bluetooth_android_next_peripheral_id++;
+    bare_bluetooth_android_peripherals.emplace(peripheral->id, peripheral);
+  }
+
+  {
+    auto gatt_callback = j_hp_gatt_callback_t(jenv, gatt_handle->gatt_callback);
+    auto set_peripheral_id = gatt_callback.get_class().get_method<void(long)>("setPeripheralId");
+    set_peripheral_id(gatt_callback, static_cast<long>(peripheral->id));
+  }
 
   js_external_t<bare_bluetooth_android_peripheral_t> handle;
   err = js_create_external(env, peripheral, handle);
