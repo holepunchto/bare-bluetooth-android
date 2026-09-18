@@ -11,7 +11,7 @@ public final class GattCallback extends android.bluetooth.BluetoothGattCallback 
   private final long nativeId;
   private final Map<String, BluetoothGatt> connectedGatts = new ConcurrentHashMap<>();
 
-  private long peripheralId;
+  private volatile long peripheralId;
 
   public GattCallback(long nativeId) {
     this.nativeId = nativeId;
