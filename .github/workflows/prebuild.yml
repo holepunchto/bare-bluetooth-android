@@ -28,7 +28,7 @@ jobs:
         with:
           platform: ${{ matrix.platform }}
           arch: ${{ matrix.arch }}
-          flags: -D ANDROID_PLATFORM=android-34 -D ANDROID_STL=c++_shared
+          flags: -D ANDROID_STL=c++_shared
           upload: true
   merge:
     runs-on: ubuntu-latest

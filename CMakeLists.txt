@@ -32,7 +32,7 @@ set_target_properties(
   CXX_SCAN_FOR_MODULES OFF
 )
 
-find_android_jar(android_jar)
+find_android_jar(android_jar PLATFORM android-34)
 
 set(CMAKE_JAVA_COMPILE_FLAGS --release 17)
 
