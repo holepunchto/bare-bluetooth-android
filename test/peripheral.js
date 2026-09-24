@@ -20,9 +20,16 @@ test('connect and discover services', { skip: isCI }, async (t) => {
 
   const discovered = await new Promise((resolve) => {
     central.on('discover', resolve)
+
+    setTimeout(() => resolve(null), 10000)
   })
 
   central.stopScan()
+
+  if (discovered === null) {
+    t.comment('no peripheral advertising, skipping')
+    return
+  }
 
   central.connect(discovered)
 
