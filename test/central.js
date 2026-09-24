@@ -139,3 +139,22 @@ test('filtered scan with non-existent service UUID finds nothing', { skip: isCI 
 
   t.absent(found, 'no peripherals discovered with non-existent service UUID')
 })
+
+test('scan with a malformed service UUID throws', { skip: isCI }, (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  t.exception(() => central.startScan(['not-a-uuid']), /IllegalArgumentException/)
+})
+
+test('a malformed service UUID leaves the binding usable', { skip: isCI }, (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  try {
+    central.startScan(['not-a-uuid'])
+  } catch {}
+
+  // exception cleared
+  t.exception(() => central.startScan(['still-not-a-uuid']), /IllegalArgumentException/)
+})
