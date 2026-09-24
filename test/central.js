@@ -51,9 +51,16 @@ test('scan discovers peripherals with expected shape', { skip: isCI }, async (t)
 
   const peripheral = await new Promise((resolve) => {
     central.on('discover', resolve)
+
+    setTimeout(() => resolve(null), 10000)
   })
 
   central.stopScan()
+
+  if (peripheral === null) {
+    t.comment('no peripheral advertising, skipping')
+    return
+  }
 
   t.ok(peripheral.scanResult, 'peripheral has scanResult')
   t.ok(typeof peripheral.id === 'string', 'peripheral has string id')
@@ -164,4 +171,20 @@ test('a malformed service UUID leaves the binding usable', { skip: isCI }, (t) =
 
   // exception cleared
   t.exception(() => central.startScan(['still-not-a-uuid']), /IllegalArgumentException/)
+})
+
+test('scan with the radio off throws', { skip: isCI }, async (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  const state = await new Promise((resolve) => {
+    central.on('stateChange', resolve)
+  })
+
+  if (state !== 'off') {
+    t.comment('bluetooth on: ' + state + ', skipping')
+    return
+  }
+
+  t.exception(() => central.startScan(), /scanner unavailable/)
 })
