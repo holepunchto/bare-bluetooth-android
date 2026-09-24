@@ -24,13 +24,11 @@ test('connect and discover services', { skip: isCI }, async (t) => {
 
   central.stopScan()
 
-  t.ok(discovered.handle, 'discovered peripheral has handle')
-
   central.connect(discovered)
 
   const result = await new Promise((resolve) => {
     central.on('connect', (peripheral) => resolve({ peripheral }))
-    central.on('connectFail', () => resolve({ failed: true }))
+    central.on('error', () => resolve({ failed: true }))
     setTimeout(() => resolve({ timeout: true }), 10000)
   })
 

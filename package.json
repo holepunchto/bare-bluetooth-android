@@ -39,11 +39,14 @@
     "bare-stream": "^2.11.0"
   },
   "devDependencies": {
+    "bare-link": "^3.3.0",
     "bare-os": "^3.8.0",
+    "bare-pack": "^2.2.2",
     "brittle": "^3.19.1",
     "cmake-android": "^0.1.2",
     "cmake-bare": "^1.6.5",
     "cmake-fetch": "^1.4.0",
+    "framed-stream": "^1.0.1",
     "lunte": "^1.6.0",
     "prettier": "^3.8.1",
     "prettier-config-holepunch": "^2.0.0"

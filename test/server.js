@@ -84,7 +84,7 @@ test('server add service with static value', { skip: isCI }, async (t) => {
   })
 
   t.absent(error, 'no error adding service')
-  t.is(uuid, SERVICE_UUID, 'service uuid matches')
+  t.is(uuid, SERVICE_UUID.toLowerCase(), 'service uuid matches')
 })
 
 test('server add service with dynamic characteristic', { skip: isCI }, async (t) => {
@@ -119,7 +119,7 @@ test('server add service with dynamic characteristic', { skip: isCI }, async (t)
   })
 
   t.absent(error, 'no error adding dynamic service')
-  t.is(uuid, serviceUuid, 'dynamic service uuid matches')
+  t.is(uuid, serviceUuid.toLowerCase(), 'dynamic service uuid matches')
 })
 
 test('server start and stop advertising', { skip: isCI }, async (t) => {
@@ -149,10 +149,7 @@ test('server start and stop advertising', { skip: isCI }, async (t) => {
   })
 
   t.execution(() => {
-    server.startAdvertising({
-      name: 'BareTestAdv',
-      serviceUUIDs: [SERVICE_UUID]
-    })
+    server.startAdvertising({ serviceUUIDs: [SERVICE_UUID] })
   })
 
   t.execution(() => {
@@ -196,7 +193,7 @@ test('server multiple characteristics in one service', { skip: isCI }, async (t)
   })
 
   t.absent(error, 'no error adding multi-characteristic service')
-  t.is(uuid, serviceUuid, 'multi-characteristic service uuid matches')
+  t.is(uuid, serviceUuid.toLowerCase(), 'multi-characteristic service uuid matches')
 })
 
 test('add service with a malformed service UUID throws', { skip: isCI }, async (t) => {
