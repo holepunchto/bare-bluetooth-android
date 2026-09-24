@@ -198,3 +198,60 @@ test('server multiple characteristics in one service', { skip: isCI }, async (t)
   t.absent(error, 'no error adding multi-characteristic service')
   t.is(uuid, serviceUuid, 'multi-characteristic service uuid matches')
 })
+
+test('add service with a malformed service UUID throws', { skip: isCI }, async (t) => {
+  const server = new Server()
+  t.teardown(() => server.destroy())
+
+  const state = await new Promise((resolve) => {
+    server.on('stateChange', resolve)
+  })
+
+  if (state !== 'on') {
+    t.comment('bluetooth not on: ' + state + ', skipping')
+    return
+  }
+
+  const characteristic = new Characteristic(CHAR_UUID, { read: true })
+  const service = new Service('not-a-uuid', [characteristic])
+
+  t.exception(() => server.addService(service), /IllegalArgumentException/)
+})
+
+test('add service with a malformed characteristic UUID throws', { skip: isCI }, async (t) => {
+  const server = new Server()
+  t.teardown(() => server.destroy())
+
+  const state = await new Promise((resolve) => {
+    server.on('stateChange', resolve)
+  })
+
+  if (state !== 'on') {
+    t.comment('bluetooth not on: ' + state + ', skipping')
+    return
+  }
+
+  const characteristic = new Characteristic('not-a-uuid', { read: true })
+  const service = new Service(SERVICE_UUID, [characteristic])
+
+  t.exception(() => server.addService(service), /IllegalArgumentException/)
+})
+
+test('advertising with a malformed service UUID throws', { skip: isCI }, async (t) => {
+  const server = new Server()
+  t.teardown(() => server.destroy())
+
+  const state = await new Promise((resolve) => {
+    server.on('stateChange', resolve)
+  })
+
+  if (state !== 'on') {
+    t.comment('bluetooth not on: ' + state + ', skipping')
+    return
+  }
+
+  t.exception(
+    () => server.startAdvertising({ serviceUUIDs: ['not-a-uuid'] }),
+    /IllegalArgumentException/
+  )
+})
