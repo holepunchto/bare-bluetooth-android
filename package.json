@@ -6,9 +6,7 @@
   "scripts": {
     "format": "prettier --write . && lunte --fix",
     "lint": "prettier --check . && lunte",
-    "test": "brittle-bare --coverage test.js",
-    "setup:android": "sh test/test-app/setup.sh",
-    "test:android": "adb logcat -c && gradle -p test/test-app installDebug && adb shell am start -W -n to.holepunch.bare.bluetooth.test/.MainActivity && adb logcat --pid=$(adb shell pidof -s to.holepunch.bare.bluetooth.test | tr -d '\\r') -v raw -s .bluetooth.test"
+    "test": "brittle-bare --coverage test.js"
   },
   "exports": {
     "./package": "./package.json",

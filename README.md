@@ -43,18 +43,16 @@ Failures arrive two ways:
 
 ## Testing on device
 
-The tests drive a real radio, so they only run on a phone. `test/test-app/` is a minimal Android app that boots a Bare worklet running `test.js` and prints the TAP output on screen.
+The tests drive a real radio, so they only run on a phone. [`test/test-app/`](test/test-app) is a minimal Android app that boots a Bare worklet running `test.js` and prints the TAP output on screen.
 
 ```console
-npm run setup:android
-npm run test:android
+sh test/test-app/setup.sh
+sh test/test-app/test.sh
 ```
 
-The first command downloads the latest Bare Kit prebuild and compiles the addon for `android-arm64`; it needs the [GitHub CLI](https://cli.github.com) and an Android NDK. Re-run it after touching `binding.cc`.
+[`setup.sh`](test/test-app/setup.sh) downloads the latest Bare Kit prebuild and compiles the addon for `android-arm64`; it needs the [GitHub CLI](https://cli.github.com) and an Android NDK. Re-run it after touching `binding.cc`.
 
-If a firewall such as Socket blocks `api.github.com` for anything npm spawns, run `sh test/test-app/setup.sh` directly instead.
-
-The second builds the APK, installs it, launches it and tails the TAP output. Plug in an arm64 device with USB debugging on, and grant the Bluetooth permissions on first launch.
+[`test.sh`](test/test-app/test.sh) builds the APK, installs it, launches it and follows the TAP output. Plug in an arm64 device with USB debugging on, and grant the Bluetooth permissions on first launch.
 
 ## API
 
