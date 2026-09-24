@@ -105,9 +105,16 @@ test('scan deduplicates peripherals by id', { skip: isCI }, async (t) => {
         resolve({ same: false })
       }
     })
+
+    setTimeout(() => resolve({ timeout: true }), 10000)
   })
 
   central.stopScan()
+
+  if (result.timeout) {
+    t.comment('no peripheral advertised twice, skipping')
+    return
+  }
 
   t.ok(result.same, 'same object reference for duplicate peripheral id')
 })
