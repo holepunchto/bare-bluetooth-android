@@ -87,8 +87,10 @@ class MainActivity : Activity() {
   private fun run() {
     worklet = Worklet(null)
 
+    val argv = intent.getStringExtra("suite")?.let { arrayOf(it) }
+
     try {
-      worklet!!.start("/test.bundle", assets.open("test.bundle"), null)
+      worklet!!.start("/test.bundle", assets.open("test.bundle"), argv)
     } catch (e: Exception) {
       throw RuntimeException(e)
     }

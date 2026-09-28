@@ -54,6 +54,14 @@ sh test/test-app/test.sh
 
 [`test.sh`](test/test-app/test.sh) builds the APK, installs it, launches it and follows the TAP output. Plug in an arm64 device with USB debugging on, and grant the Bluetooth permissions on first launch.
 
+### The state suite
+
+```console
+sh test/test-app/test.sh state
+```
+
+Adds `test/state.js`, and starts `test/test-app/state.sh` in the background to toggle the radio.
+
 ## API
 
 See the [`bare-bluetooth-android` reference](https://docs.pears.com/reference/bare/modules/bare-bluetooth-android).
