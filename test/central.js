@@ -137,19 +137,15 @@ test('disconnect of the current connection is reported', { skip: isCI }, (t) => 
   t.teardown(() => central.destroy())
 
   const id = '00:11:22:33:44:55'
-  let reported = null
-  // TODO: a fake peripheral because _ondisconnect calls straight into the
-  // binding. Pull the "is this my connection" decision out of the native path
-  // so this can be tested with plain data.
-  const connected = {
-    id,
-    _handle: {},
-    _ondisconnect(error) {
-      reported = error
-    },
-    destroy() {}
-  }
+  const device = new Device({ address: id })
+  const connected = new Peripheral({ scanResult: new ScanResult({ device, rssi: -50 }) })
+  connected._attached = true
   central._connected.set(id, connected)
+
+  let reported = null
+  connected.on('error', (err) => {
+    reported = err
+  })
 
   let emitted = null
   central.on('error', (err) => {
@@ -158,9 +154,10 @@ test('disconnect of the current connection is reported', { skip: isCI }, (t) => 
 
   central._ondisconnect(id, 'GATT error 133')
 
-  t.is(reported, 'GATT error 133', 'the peripheral is told')
+  t.is(reported.code, 'DISCONNECT', 'the peripheral is told')
   t.is(emitted.code, 'DISCONNECT')
   t.absent(central._connected.has(id))
+  t.absent(connected._attached, 'the peripheral is no longer attached')
 })
 
 test('central exports state constants', (t) => {
