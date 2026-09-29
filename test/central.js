@@ -27,10 +27,7 @@ test('central tracks state property', { skip: isCI }, async (t) => {
   t.is(central.state, state, 'state property matches emitted state')
 })
 
-test('reconnect to the same peripheral after disconnect', { skip: isCI }, async (t) => {
-  const central = new Central()
-  t.teardown(() => central.destroy())
-
+async function nearby(t, central) {
   central.on('error', () => {})
 
   const state = await new Promise((resolve) => {
@@ -39,7 +36,7 @@ test('reconnect to the same peripheral after disconnect', { skip: isCI }, async 
 
   if (state !== 'on') {
     t.comment('bluetooth not on: ' + state + ', skipping')
-    return
+    return null
   }
 
   central.startScan()
@@ -52,22 +49,30 @@ test('reconnect to the same peripheral after disconnect', { skip: isCI }, async 
 
   central.stopScan()
 
-  if (discovered === null) {
-    t.comment('no peripheral advertising, skipping')
-    return
-  }
+  if (discovered === null) t.comment('no peripheral advertising, skipping')
 
-  const settled = () =>
-    new Promise((resolve) => {
-      central.once('connect', (peripheral) => resolve({ peripheral }))
-      central.once('error', (error) => resolve({ error }))
+  return discovered
+}
 
-      setTimeout(() => resolve({ timeout: true }), 5000)
-    })
+function settled(central) {
+  return new Promise((resolve) => {
+    central.once('connect', (peripheral) => resolve({ peripheral }))
+    central.once('error', (error) => resolve({ error }))
+
+    setTimeout(() => resolve({ timeout: true }), 5000)
+  })
+}
+
+test('reconnect to the same peripheral after disconnect', { skip: isCI }, async (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  const discovered = await nearby(t, central)
+  if (discovered === null) return
 
   central.connect(discovered)
 
-  const first = await settled()
+  const first = await settled(central)
 
   if (first.timeout || first.error) {
     t.comment('could not connect to nearby peripheral, skipping')
@@ -78,11 +83,34 @@ test('reconnect to the same peripheral after disconnect', { skip: isCI }, async 
 
   central.connect(discovered)
 
-  const second = await settled()
+  const second = await settled(central)
 
   t.absent(second.timeout, 'reconnect did not time out')
   t.absent(second.error, 'reconnect did not error')
   t.ok(second.peripheral, 'reconnect emits connect again')
+})
+
+test('redial after abandoning a pending dial', { skip: isCI }, async (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  const discovered = await nearby(t, central)
+  if (discovered === null) return
+
+  central.connect(discovered)
+  central.disconnect(discovered)
+
+  central.connect(discovered)
+
+  const result = await settled(central)
+
+  if (result.timeout || result.error) {
+    t.comment('could not connect to nearby peripheral, skipping')
+    return
+  }
+
+  t.ok(result.peripheral, 'redial emits connect')
+  t.is(result.peripheral, discovered, 'connect carries the redialled peripheral')
 })
 
 test('central exports state constants', (t) => {

@@ -328,7 +328,6 @@ struct bare_bluetooth_android_central_t {
   java_global_ref_t<j_bluetooth_adapter_t> adapter;
   java_global_ref_t<j_bluetooth_le_scanner_t> scanner;
   java_global_ref_t<j_hp_scan_callback_t> scan_callback;
-  java_global_ref_t<j_hp_gatt_callback_t> gatt_callback_ref;
   java_global_ref_t<j_hp_state_receiver_t> state_receiver;
 
   // Stable id handed to the Java callbacks, resolved against the registry.
@@ -1211,7 +1210,7 @@ bare_bluetooth_android_central__on_discover(
 static void
 bare_bluetooth_android_central__on_connect(
   js_env_t *env,
-  js_function_t<void, js_receiver_t, js_handle_t, std::string> function,
+  js_function_t<void, js_receiver_t, std::string> function,
   bare_bluetooth_android_central_t *context,
   bare_bluetooth_android_central_connect_t *data
 ) {
@@ -1235,25 +1234,9 @@ bare_bluetooth_android_central__on_connect(
   err = js_get_reference_value(env, central->ctx, &receiver);
   assert(err == 0);
 
-  auto jenv = bare_bluetooth_android_jvm().get_env().value();
-  auto callback = j_hp_gatt_callback_t(jenv, central->gatt_callback_ref);
-  auto take_connected_gatt = callback.get_class().get_method<j_bluetooth_gatt_t(std::string)>("takeConnectedGatt");
-  auto gatt = take_connected_gatt(callback, event->address);
+  js_function_t<void, js_receiver_t, std::string> callback_fn(function);
 
-  assert(static_cast<jobject>(gatt) != nullptr);
-
-  auto *gatt_handle = new bare_bluetooth_android_gatt_handle_t{
-    java_global_ref_t<j_bluetooth_gatt_t>(jenv, gatt),
-    java_global_ref_t<j_hp_gatt_callback_t>(jenv, callback)
-  };
-
-  js_external_t<bare_bluetooth_android_gatt_handle_t> ext;
-  err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_gatt_handle_t>>(env, gatt_handle, ext);
-  assert(err == 0);
-
-  js_function_t<void, js_receiver_t, js_handle_t, std::string> callback_fn(function);
-
-  err = js_call_function(env, callback_fn, js_receiver_t(receiver), js_handle_t(static_cast<js_value_t *>(ext)), event->address);
+  err = js_call_function(env, callback_fn, js_receiver_t(receiver), event->address);
   assert(err == 0);
 
   delete event;
@@ -1400,7 +1383,7 @@ bare_bluetooth_android_central_init(
   js_object_t ctx,
   js_function_t<void, js_receiver_t, int32_t> on_state_change,
   js_function_t<void, js_receiver_t, std::string, js_handle_t, int32_t, js_handle_t> on_discover,
-  js_function_t<void, js_receiver_t, js_handle_t, std::string> on_connect,
+  js_function_t<void, js_receiver_t, std::string> on_connect,
   js_function_t<void, js_receiver_t, std::string, js_handle_t> on_disconnect,
   js_function_t<void, js_receiver_t, std::string, std::string> on_connect_fail,
   js_function_t<void, js_receiver_t, int32_t> on_scan_fail
@@ -1544,7 +1527,7 @@ bare_bluetooth_android_central_stop_scan(js_env_t *env, bare_bluetooth_android_c
   if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
 }
 
-static void
+static js_external_t<bare_bluetooth_android_gatt_handle_t>
 bare_bluetooth_android_central_connect(
   js_env_t *env,
   bare_bluetooth_android_central_t *central,
@@ -1559,14 +1542,27 @@ bare_bluetooth_android_central_connect(
   auto gatt_callback_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattCallback">();
   auto gatt_callback = gatt_callback_class(static_cast<long>(central->id));
 
-  central->gatt_callback_ref = java_global_ref_t<j_hp_gatt_callback_t>(jenv, gatt_callback);
-
   auto context = bare_bluetooth_android_get_context(jenv);
 
   auto connect_gatt = device.get_class().get_method<j_bluetooth_gatt_t(j_context_t, bool, j_bluetooth_gatt_callback_t, int)>("connectGatt");
-  connect_gatt(device, context, false, j_bluetooth_gatt_callback_t(jenv, gatt_callback), 2);
+  auto gatt = connect_gatt(device, context, false, j_bluetooth_gatt_callback_t(jenv, gatt_callback), 2);
 
   if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
+
+  if (static_cast<jobject>(gatt) == nullptr) {
+    bare_bluetooth_android_throw_error(env, "Failed to open a GATT connection");
+  }
+
+  auto *gatt_handle = new bare_bluetooth_android_gatt_handle_t{
+    java_global_ref_t<j_bluetooth_gatt_t>(jenv, gatt),
+    java_global_ref_t<j_hp_gatt_callback_t>(jenv, gatt_callback)
+  };
+
+  js_external_t<bare_bluetooth_android_gatt_handle_t> ext;
+  int err = js_create_external<bare_bluetooth_android__on_release<bare_bluetooth_android_gatt_handle_t>>(env, gatt_handle, ext);
+  assert(err == 0);
+
+  return ext;
 }
 
 static void
