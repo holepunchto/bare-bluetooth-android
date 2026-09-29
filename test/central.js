@@ -114,6 +114,8 @@ test('redial after abandoning a pending dial', { skip: isCI }, async (t) => {
 
   t.ok(result.peripheral, 'redial emits connect')
   t.is(result.peripheral, discovered, 'connect carries the redialled peripheral')
+})
+
 test('disconnect of an earlier connection leaves a pending dial alone', { skip: isCI }, (t) => {
   const central = new Central()
   t.teardown(() => central.destroy())
@@ -136,9 +138,12 @@ test('disconnect of the current connection is reported', { skip: isCI }, (t) => 
 
   const id = '00:11:22:33:44:55'
   let reported = null
+  // TODO: a fake peripheral because _ondisconnect calls straight into the
+  // binding. Pull the "is this my connection" decision out of the native path
+  // so this can be tested with plain data.
   const connected = {
     id,
-    _gattHandle: {},
+    _handle: {},
     _ondisconnect(error) {
       reported = error
     },
@@ -154,7 +159,7 @@ test('disconnect of the current connection is reported', { skip: isCI }, (t) => 
   central._ondisconnect(id, 'GATT error 133')
 
   t.is(reported, 'GATT error 133', 'the peripheral is told')
-  t.is(emitted?.code, 'DISCONNECT')
+  t.is(emitted.code, 'DISCONNECT')
   t.absent(central._connected.has(id))
 })
 
