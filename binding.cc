@@ -924,9 +924,20 @@ bare_bluetooth_android_l2cap_init(
 ) {
   int err;
 
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+  auto socket = j_bluetooth_socket_t(jenv, socket_handle->handle);
+  auto get_device = socket.get_class().get_method<j_bluetooth_device_t()>("getRemoteDevice");
+  auto device = get_device(socket);
+  auto get_address = device.get_class().get_method<std::string()>("getAddress");
+  auto peer_address = get_address(device);
+
+  if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
+
   auto *channel = new bare_bluetooth_android_channel_t();
   channel->env = env;
   channel->socket = java_global_ref_t<j_bluetooth_socket_t>(std::move(socket_handle->handle));
+  channel->peer_address = peer_address;
+  channel->psm = 0;
   channel->opened = false;
   channel->destroyed = false;
   channel->finalized = false;
@@ -937,17 +948,6 @@ bare_bluetooth_android_l2cap_init(
     channel->id = bare_bluetooth_android_next_channel_id++;
     bare_bluetooth_android_channels.emplace(channel->id, channel);
   }
-
-  auto jenv = bare_bluetooth_android_jvm().get_env().value();
-  auto socket = j_bluetooth_socket_t(jenv, channel->socket);
-  auto get_device = socket.get_class().get_method<j_bluetooth_device_t()>("getRemoteDevice");
-  auto device = get_device(socket);
-  auto get_address = device.get_class().get_method<std::string()>("getAddress");
-
-  channel->peer_address = get_address(device);
-  channel->psm = 0;
-
-  if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
 
   err = js_create_reference(env, static_cast<js_value_t *>(ctx), 1, &channel->ctx);
   assert(err == 0);
