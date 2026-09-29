@@ -1,5 +1,8 @@
 const test = require('brittle')
 const Central = require('../lib/central')
+const Peripheral = require('../lib/peripheral')
+const ScanResult = require('../lib/scan-result')
+const Device = require('../lib/device')
 const { isCI } = require('./helpers')
 
 test('central emits stateChange on init', { skip: isCI }, async (t) => {
@@ -111,6 +114,48 @@ test('redial after abandoning a pending dial', { skip: isCI }, async (t) => {
 
   t.ok(result.peripheral, 'redial emits connect')
   t.is(result.peripheral, discovered, 'connect carries the redialled peripheral')
+test('disconnect of an earlier connection leaves a pending dial alone', { skip: isCI }, (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  const id = '00:11:22:33:44:55'
+  const device = new Device({ address: id })
+  const pending = new Peripheral({ scanResult: new ScanResult({ device, rssi: -50 }) })
+  central._connected.set(id, pending)
+
+  central.on('error', () => t.fail('error emitted for an earlier connection'))
+  central.on('disconnect', () => t.fail('disconnect emitted for an earlier connection'))
+
+  t.execution(() => central._ondisconnect(id, 'GATT error 133'))
+  t.is(central._connected.get(id), pending, 'the pending dial is still tracked')
+})
+
+test('disconnect of the current connection is reported', { skip: isCI }, (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  const id = '00:11:22:33:44:55'
+  let reported = null
+  const connected = {
+    id,
+    _gattHandle: {},
+    _ondisconnect(error) {
+      reported = error
+    },
+    destroy() {}
+  }
+  central._connected.set(id, connected)
+
+  let emitted = null
+  central.on('error', (err) => {
+    emitted = err
+  })
+
+  central._ondisconnect(id, 'GATT error 133')
+
+  t.is(reported, 'GATT error 133', 'the peripheral is told')
+  t.is(emitted?.code, 'DISCONNECT')
+  t.absent(central._connected.has(id))
 })
 
 test('central exports state constants', (t) => {
