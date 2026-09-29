@@ -27,6 +27,64 @@ test('central tracks state property', { skip: isCI }, async (t) => {
   t.is(central.state, state, 'state property matches emitted state')
 })
 
+test('reconnect to the same peripheral after disconnect', { skip: isCI }, async (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  central.on('error', () => {})
+
+  const state = await new Promise((resolve) => {
+    central.on('stateChange', resolve)
+  })
+
+  if (state !== 'on') {
+    t.comment('bluetooth not on: ' + state + ', skipping')
+    return
+  }
+
+  central.startScan()
+
+  const discovered = await new Promise((resolve) => {
+    central.on('discover', resolve)
+
+    setTimeout(() => resolve(null), 5000)
+  })
+
+  central.stopScan()
+
+  if (discovered === null) {
+    t.comment('no peripheral advertising, skipping')
+    return
+  }
+
+  const settled = () =>
+    new Promise((resolve) => {
+      central.once('connect', (peripheral) => resolve({ peripheral }))
+      central.once('error', (error) => resolve({ error }))
+
+      setTimeout(() => resolve({ timeout: true }), 5000)
+    })
+
+  central.connect(discovered)
+
+  const first = await settled()
+
+  if (first.timeout || first.error) {
+    t.comment('could not connect to nearby peripheral, skipping')
+    return
+  }
+
+  central.disconnect(first.peripheral)
+
+  central.connect(discovered)
+
+  const second = await settled()
+
+  t.absent(second.timeout, 'reconnect did not time out')
+  t.absent(second.error, 'reconnect did not error')
+  t.ok(second.peripheral, 'reconnect emits connect again')
+})
+
 test('central exports state constants', (t) => {
   t.is(Central.STATE_OFF, 10)
   t.is(Central.STATE_TURNING_ON, 11)

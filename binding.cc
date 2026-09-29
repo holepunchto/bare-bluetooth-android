@@ -1579,6 +1579,13 @@ bare_bluetooth_android_central_disconnect(
 
   auto gatt = j_bluetooth_gatt_t(jenv, gatt_handle->handle);
 
+  auto address = bare_bluetooth_android_get_device_address(jenv, gatt);
+
+  if (!bare_bluetooth_android_has_exception(jenv)) {
+    std::lock_guard<std::mutex> lock(central->connected_addresses_mutex);
+    central->connected_addresses.erase(address);
+  }
+
   auto disconnect = gatt.get_class().get_method<void()>("disconnect");
   disconnect(gatt);
 
