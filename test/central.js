@@ -160,6 +160,25 @@ test('disconnect of the current connection is reported', { skip: isCI }, (t) => 
   t.absent(connected._attached, 'the peripheral is no longer attached')
 })
 
+test('destroying a peripheral closes its pending dial', { skip: isCI }, (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  const id = '00:11:22:33:44:55'
+  const device = new Device({ address: id })
+  const peripheral = new Peripheral({ scanResult: new ScanResult({ device, rssi: -50 }) })
+
+  central.connect(peripheral)
+
+  t.ok(peripheral.connecting, 'the dial is in flight')
+  t.absent(peripheral.connected, 'not connected yet')
+
+  peripheral.destroy()
+
+  t.absent(peripheral.connecting, 'destroy cancels the dial')
+  t.absent(peripheral.connected, 'still not connected')
+})
+
 test('central exports state constants', (t) => {
   t.is(Central.STATE_OFF, 10)
   t.is(Central.STATE_TURNING_ON, 11)

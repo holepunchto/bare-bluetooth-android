@@ -49,6 +49,12 @@ export default class Peripheral extends EventEmitter<PeripheralEventMap> {
   readonly name: string | null
   /** The signal strength of the most recent advertisement, equal to `scanResult.rssi`. */
   readonly rssi: number
+
+  /** Whether the peripheral is connected */
+  readonly connected: boolean
+
+  /** Whether a dial is in flight and has not connected yet */
+  readonly connecting: boolean
   /**
    * The advertised service data, or `null` when the advertisement carried no scan record or no
    * service data.
