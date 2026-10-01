@@ -54,6 +54,17 @@ sh test/test-app/test.sh
 
 [`test.sh`](test/test-app/test.sh) builds the APK, installs it, launches it and follows the TAP output. Plug in an arm64 device with USB debugging on, and grant the Bluetooth permissions on first launch.
 
+### Under AddressSanitizer
+
+```console
+sh test/test-app/setup.sh --asan
+sh test/test-app/test.sh
+```
+
+`--asan` builds the addon with AddressSanitizer and stages the NDK ASan runtime next to a `wrap.sh` that preloads it. Reports arrive in the same TAP output as the tests. Re-run `setup.sh` without the flag to go back.
+
+The Bare Kit release is not instrumented, so reports cover this addon and not the runtime. [`docs/asan.md`](docs/asan.md) covers what that misses and how to build a Bare Kit that closes the gap.
+
 ### The state suite
 
 ```console

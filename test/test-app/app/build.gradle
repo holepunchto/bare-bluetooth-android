@@ -32,7 +32,17 @@ android {
 
   sourceSets {
     main {
-      jniLibs.srcDirs "src/main/addons", "libs/bare-kit/jni"
+      // src/main/asan holds the ASan runtime setup.sh --asan stages; it stays
+      // out of src/main/addons, which bare-link rewrites on every build.
+      jniLibs.srcDirs "src/main/addons", "src/main/asan", "libs/bare-kit/jni"
+    }
+  }
+
+  // wrap.sh only runs if the native libraries are extracted to disk.
+  // https://developer.android.com/ndk/guides/wrap-script
+  packaging {
+    jniLibs {
+      useLegacyPackaging = true
     }
   }
 }
