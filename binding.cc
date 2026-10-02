@@ -1527,6 +1527,62 @@ bare_bluetooth_android_central_stop_scan(js_env_t *env, bare_bluetooth_android_c
   if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
 }
 
+static std::vector<js_object_t>
+bare_bluetooth_android_central_get_bonded_devices(js_env_t *env, bare_bluetooth_android_central_t *central) {
+  int err;
+
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+
+  auto adapter = j_bluetooth_adapter_t(jenv, central->adapter);
+  auto devices = adapter.get_class().get_method<j_set_t()>("getBondedDevices")(adapter);
+
+  if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
+
+  std::vector<js_object_t> result;
+
+  if (static_cast<jobject>(devices) == nullptr) return result;
+
+  auto iterator = devices.get_class().get_method<j_iterator_t()>("iterator")(devices);
+  auto has_next = iterator.get_class().get_method<bool()>("hasNext");
+  auto next = iterator.get_class().get_method<j_object_t()>("next");
+
+  while (has_next(iterator)) {
+    auto device = j_bluetooth_device_t(jenv, static_cast<jobject>(next(iterator)));
+
+    auto address = device.get_class().get_method<std::string()>("getAddress")(device);
+    auto name_obj = device.get_class().get_method<j_string_t()>("getName")(device);
+    auto type = device.get_class().get_method<int()>("getType")(device);
+
+    if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
+
+    js_object_t entry;
+    err = js_create_object(env, entry);
+    assert(err == 0);
+
+    err = js_set_property(env, entry, "address", address);
+    assert(err == 0);
+
+    if (static_cast<jobject>(name_obj) == nullptr) {
+      js_value_t *null;
+      err = js_get_null(env, &null);
+      assert(err == 0);
+
+      err = js_set_named_property(env, static_cast<js_value_t *>(entry), "name", null);
+      assert(err == 0);
+    } else {
+      err = js_set_property(env, entry, "name", std::string(java_string_t(jenv, name_obj)));
+      assert(err == 0);
+    }
+
+    err = js_set_property(env, entry, "type", static_cast<int32_t>(type));
+    assert(err == 0);
+
+    result.push_back(entry);
+  }
+
+  return result;
+}
+
 static js_external_t<bare_bluetooth_android_gatt_handle_t>
 bare_bluetooth_android_central_connect(
   js_env_t *env,
@@ -4769,6 +4825,7 @@ bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
   V("centralInit", bare_bluetooth_android_central_init)
   V("centralStartScan", bare_bluetooth_android_central_start_scan)
   V("centralStopScan", bare_bluetooth_android_central_stop_scan)
+  V("centralGetBondedDevices", bare_bluetooth_android_central_get_bonded_devices)
   V("centralConnect", bare_bluetooth_android_central_connect)
   V("centralDisconnect", bare_bluetooth_android_central_disconnect)
   V("centralDestroy", bare_bluetooth_android_central_destroy)
@@ -4864,6 +4921,11 @@ bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
   V("CALLBACK_TYPE_ALL_MATCHES", 1)
   V("CALLBACK_TYPE_FIRST_MATCH", 2)
   V("CALLBACK_TYPE_MATCH_LOST", 4)
+
+  V("DEVICE_TYPE_UNKNOWN", 0)
+  V("DEVICE_TYPE_CLASSIC", 1)
+  V("DEVICE_TYPE_LE", 2)
+  V("DEVICE_TYPE_DUAL", 3)
 #undef V
 
   return exports;

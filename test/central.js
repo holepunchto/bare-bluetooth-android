@@ -232,6 +232,60 @@ test('scan discovers peripherals with expected shape', { skip: isCI }, async (t)
   )
 })
 
+test('bonded devices have expected shape', { skip: isCI }, async (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  const state = await new Promise((resolve) => {
+    central.on('stateChange', resolve)
+  })
+
+  if (state !== 'on') {
+    t.comment('bluetooth not on: ' + state + ', skipping')
+    return
+  }
+
+  const devices = central.getBondedDevices()
+
+  t.ok(Array.isArray(devices), 'bonded devices is an array')
+
+  if (devices.length === 0) {
+    t.comment('no bonded device, skipping')
+    return
+  }
+
+  for (const device of devices) {
+    t.ok(device instanceof Device, 'bonded device is a Device')
+    t.ok(typeof device.address === 'string' && device.address.length > 0, 'device has address')
+    t.ok(device.name === null || typeof device.name === 'string', 'name is string or null')
+    t.ok(
+      [
+        Device.DEVICE_TYPE_UNKNOWN,
+        Device.DEVICE_TYPE_CLASSIC,
+        Device.DEVICE_TYPE_LE,
+        Device.DEVICE_TYPE_DUAL
+      ].includes(device.type),
+      'type is a DEVICE_TYPE_* constant'
+    )
+  }
+})
+
+test('bonded devices with the radio off is empty', { skip: isCI }, async (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  const state = await new Promise((resolve) => {
+    central.on('stateChange', resolve)
+  })
+
+  if (state !== 'off') {
+    t.comment('bluetooth on: ' + state + ', skipping')
+    return
+  }
+
+  t.alike(central.getBondedDevices(), [])
+})
+
 test('scan deduplicates peripherals by id', { skip: isCI }, async (t) => {
   const central = new Central()
   t.teardown(() => central.destroy())

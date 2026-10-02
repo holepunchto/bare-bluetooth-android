@@ -1,5 +1,6 @@
 import { EventEmitter, EventMap } from 'bare-events'
 import Peripheral from './peripheral'
+import Device from './device'
 import BluetoothError from './errors'
 
 export type BluetoothState = 'off' | 'turningOn' | 'on' | 'turningOff'
@@ -35,6 +36,12 @@ export default class Central extends EventEmitter<CentralEventMap> {
   startScan(serviceUUIDs?: string[], opts?: { scanMode?: number; callbackType?: number }): void
   /** Stop scanning for peripherals. */
   stopScan(): void
+  /**
+   * The devices bonded with the adapter, mirroring `BluetoothAdapter.getBondedDevices()`. Empty
+   * unless the adapter is on.
+   * @throws if `BLUETOOTH_CONNECT` is not granted.
+   */
+  getBondedDevices(): Device[]
   /**
    * Connect to a discovered `peripheral`.
    * @param peripheral - A discovered peripheral to connect to.
