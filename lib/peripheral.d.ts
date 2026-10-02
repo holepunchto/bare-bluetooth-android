@@ -3,12 +3,15 @@ import Service from './service'
 import Characteristic from './characteristic'
 import L2CAPChannel from './channel'
 import ScanResult from './scan-result'
+import Device from './device'
 import BluetoothError from './errors'
 import type { ServiceData } from './scan-record'
 
 export interface PeripheralOptions {
   /** The `ScanResult` from the most recent advertisement for this peripheral. */
-  scanResult: ScanResult
+  scanResult?: ScanResult
+  /** A device to dial without a scan, such as one from `central.getBondedDevices()`. */
+  device?: Device
 }
 
 export interface PeripheralEventMap extends EventMap {
@@ -35,20 +38,19 @@ export interface PeripheralEventMap extends EventMap {
 
 export default class Peripheral extends EventEmitter<PeripheralEventMap> {
   /**
-   * @param opts - Options carrying the `ScanResult` this peripheral is derived from.
+   * @param opts - Options carrying the `ScanResult` or the `Device` this peripheral is derived
+   * from.
    */
   constructor(opts: PeripheralOptions)
 
-  readonly scanResult: ScanResult
-  /** The unique identifier of the peripheral, equal to `scanResult.device.address`. */
+  /** The most recent advertisement, or `null` when the peripheral was built from a `Device`. */
+  readonly scanResult: ScanResult | null
+  /** The unique identifier of the peripheral, equal to the device address. */
   readonly id: string
-  /**
-   * The advertised name of the peripheral, or `null` if unavailable. Equal to
-   * `scanResult.device.name`.
-   */
+  /** The name of the peripheral, or `null` if unavailable. */
   readonly name: string | null
-  /** The signal strength of the most recent advertisement, equal to `scanResult.rssi`. */
-  readonly rssi: number
+  /** The signal strength of the most recent advertisement, or `null` without a scan. */
+  readonly rssi: number | null
 
   /** Whether the peripheral is connected */
   readonly connected: boolean

@@ -1,6 +1,7 @@
 const test = require('brittle')
 const Central = require('../lib/central')
 const Peripheral = require('../lib/peripheral')
+const Device = require('../lib/device')
 const { isCI } = require('./helpers')
 
 test('connect and discover services', { skip: isCI }, async (t) => {
@@ -112,4 +113,65 @@ test('peripheral property constants', (t) => {
   t.is(Peripheral.PROPERTY_WRITE, 0x08)
   t.is(Peripheral.PROPERTY_NOTIFY, 0x10)
   t.is(Peripheral.PROPERTY_INDICATE, 0x20)
+})
+
+test('peripheral from a device has no advertisement', (t) => {
+  const device = new Device({ address: 'AA:BB:CC:DD:EE:FF', name: 'bonded' })
+  const peripheral = new Peripheral({ device })
+
+  t.is(peripheral.id, device.address)
+  t.is(peripheral.name, device.name)
+  t.is(peripheral.scanResult, null)
+  t.is(peripheral.rssi, null)
+  t.is(peripheral.serviceData, null)
+})
+
+test('peripheral without a device or a scan result throws', (t) => {
+  t.exception(() => new Peripheral(), /needs a device/)
+  t.exception(() => new Peripheral({}), /needs a device/)
+})
+
+test('dial a bonded device', { skip: isCI, timeout: 30000 }, async (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  const state = await new Promise((resolve) => {
+    central.on('stateChange', resolve)
+  })
+
+  if (state !== 'on') {
+    t.comment('bluetooth not on: ' + state + ', skipping')
+    return
+  }
+
+  const [device] = central.getBondedDevices().filter((d) => d.type !== Device.DEVICE_TYPE_CLASSIC)
+
+  if (!device) {
+    t.comment('no bonded LE device, skipping')
+    return
+  }
+
+  const peripheral = new Peripheral({ device })
+
+  central.on('error', () => {})
+  central.connect(peripheral)
+
+  t.ok(peripheral.connecting, 'dial is in flight')
+
+  const connected = await new Promise((resolve) => {
+    central.once('connect', (p) => resolve(p === peripheral))
+
+    setTimeout(() => resolve(false), 15000)
+  })
+
+  if (!connected) {
+    t.comment('bonded device not reachable, skipping')
+    central.disconnect(peripheral)
+    return
+  }
+
+  t.ok(peripheral.connected, 'peripheral is connected')
+  t.is(peripheral.id, device.address)
+
+  central.disconnect(peripheral)
 })
