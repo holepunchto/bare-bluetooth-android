@@ -127,6 +127,7 @@ test('peripheral from a device has no advertisement', (t) => {
 })
 
 test('peripheral without a device or a scan result throws', (t) => {
+  t.exception(() => new Peripheral(), /needs a device/)
   t.exception(() => new Peripheral({}), /needs a device/)
 })
 
