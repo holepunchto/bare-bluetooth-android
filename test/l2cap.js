@@ -15,6 +15,8 @@ test('server publish L2CAP channel returns PSM', { skip: isCI }, async (t) => {
     return
   }
 
+  server.open()
+
   server.publishChannel()
 
   const [psm, error] = await new Promise((resolve) => {
@@ -42,6 +44,8 @@ test('server publish multiple L2CAP channels', { skip: isCI }, async (t) => {
     t.comment('bluetooth not on: ' + state + ', skipping')
     return
   }
+
+  server.open()
 
   server.publishChannel()
 
@@ -82,6 +86,8 @@ test('server publish encrypted L2CAP channel', { skip: isCI }, async (t) => {
     t.comment('bluetooth not on: ' + state + ', skipping')
     return
   }
+
+  server.open()
 
   server.publishChannel({ encrypted: true })
 
