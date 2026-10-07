@@ -3915,13 +3915,6 @@ bare_bluetooth_android_server_init(
   auto manager_obj = get_system_service(activity, std::string("bluetooth"));
   auto bt_manager = j_bluetooth_manager_t(jenv, manager_obj);
 
-  auto callback_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattServerCallback">();
-  auto callback_local = callback_class(static_cast<long>(server->id));
-
-  auto open_gatt_server = bt_manager.get_class().get_method<j_bluetooth_gatt_server_t(j_context_t, j_bluetooth_gatt_server_callback_t)>("openGattServer");
-  auto gatt_server_local = open_gatt_server(bt_manager, activity, j_bluetooth_gatt_server_callback_t(jenv, callback_local));
-  server->gatt_server = java_global_ref_t<j_bluetooth_gatt_server_t>(jenv, gatt_server_local);
-
   auto get_adapter = bt_manager.get_class().get_method<j_bluetooth_adapter_t()>("getAdapter");
   auto adapter = get_adapter(bt_manager);
   server->adapter = java_global_ref_t<j_bluetooth_adapter_t>(jenv, adapter);
@@ -3955,6 +3948,49 @@ bare_bluetooth_android_server_init(
   assert(err == 0);
 
   return handle;
+}
+
+static void
+bare_bluetooth_android_server_open(js_env_t *env, bare_bluetooth_android_server_t *server) {
+  if (static_cast<jobject>(server->gatt_server) != nullptr) {
+    bare_bluetooth_android_throw_error(env, "GATT server already open");
+  }
+
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+
+  auto activity = bare_bluetooth_android_get_context(jenv);
+  auto get_system_service = activity.get_class().get_method<j_object_t(std::string)>("getSystemService");
+  auto manager_obj = get_system_service(activity, std::string("bluetooth"));
+  auto bt_manager = j_bluetooth_manager_t(jenv, manager_obj);
+
+  auto callback_class = bare_bluetooth_android_get_class_loader(jenv).load_class<"to/holepunch/bare/bluetooth/GattServerCallback">();
+  auto callback_local = callback_class(static_cast<long>(server->id));
+
+  auto open_gatt_server = bt_manager.get_class().get_method<j_bluetooth_gatt_server_t(j_context_t, j_bluetooth_gatt_server_callback_t)>("openGattServer");
+  auto gatt_server_local = open_gatt_server(bt_manager, activity, j_bluetooth_gatt_server_callback_t(jenv, callback_local));
+
+  if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
+
+  server->gatt_server = java_global_ref_t<j_bluetooth_gatt_server_t>(jenv, gatt_server_local);
+
+  if (static_cast<jobject>(server->gatt_server) == nullptr) {
+    bare_bluetooth_android_throw_error(env, "openGattServer returned null");
+  }
+}
+
+static void
+bare_bluetooth_android_server_close(js_env_t *env, bare_bluetooth_android_server_t *server) {
+  if (static_cast<jobject>(server->gatt_server) == nullptr) return;
+
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+
+  auto gatt_server = j_bluetooth_gatt_server_t(jenv, server->gatt_server);
+  auto close = gatt_server.get_class().get_method<void()>("close");
+  close(gatt_server);
+
+  server->gatt_server = {};
+
+  if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
 }
 
 static void
@@ -4855,6 +4891,8 @@ bare_bluetooth_android_exports(js_env_t *env, js_value_t *exports) {
   V("characteristicProperties", bare_bluetooth_android_characteristic_properties)
 
   V("serverInit", bare_bluetooth_android_server_init)
+  V("serverOpen", bare_bluetooth_android_server_open)
+  V("serverClose", bare_bluetooth_android_server_close)
   V("serverAddService", bare_bluetooth_android_server_add_service)
   V("serverStartAdvertising", bare_bluetooth_android_server_start_advertising)
   V("serverStopAdvertising", bare_bluetooth_android_server_stop_advertising)

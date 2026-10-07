@@ -68,6 +68,8 @@ test('server add service with static value', { skip: isCI }, async (t) => {
     return
   }
 
+  server.open()
+
   const characteristic = new Characteristic(CHAR_UUID, {
     read: true,
     value: new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f])
@@ -99,6 +101,8 @@ test('server add service with dynamic characteristic', { skip: isCI }, async (t)
     t.comment('bluetooth not on: ' + state + ', skipping')
     return
   }
+
+  server.open()
 
   const dynamicUuid = 'AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE'
 
@@ -135,6 +139,8 @@ test('server start and stop advertising', { skip: isCI }, async (t) => {
     return
   }
 
+  server.open()
+
   const characteristic = new Characteristic(CHAR_UUID, {
     read: true,
     value: new Uint8Array([0x01])
@@ -169,6 +175,8 @@ test('server multiple characteristics in one service', { skip: isCI }, async (t)
     t.comment('bluetooth not on: ' + state + ', skipping')
     return
   }
+
+  server.open()
 
   const charA = new Characteristic('11111111-1111-1111-1111-111111111111', {
     read: true,
@@ -209,6 +217,8 @@ test('add service with a malformed service UUID throws', { skip: isCI }, async (
     return
   }
 
+  server.open()
+
   const characteristic = new Characteristic(CHAR_UUID, { read: true })
   const service = new Service('not-a-uuid', [characteristic])
 
@@ -227,6 +237,8 @@ test('add service with a malformed characteristic UUID throws', { skip: isCI }, 
     t.comment('bluetooth not on: ' + state + ', skipping')
     return
   }
+
+  server.open()
 
   const characteristic = new Characteristic('not-a-uuid', { read: true })
   const service = new Service(SERVICE_UUID, [characteristic])
@@ -247,8 +259,99 @@ test('advertising with a malformed service UUID throws', { skip: isCI }, async (
     return
   }
 
+  server.open()
+
   t.exception(
     () => server.startAdvertising({ serviceUUIDs: ['not-a-uuid'] }),
     /IllegalArgumentException/
   )
+})
+
+test('add service before open throws', { skip: isCI }, (t) => {
+  const server = new Server()
+  t.teardown(() => server.destroy())
+
+  const characteristic = new Characteristic(CHAR_UUID, { read: true })
+  const service = new Service(SERVICE_UUID, [characteristic])
+
+  t.exception(() => server.addService(service), /GATT server unavailable/)
+})
+
+test('add service after close throws', { skip: isCI }, async (t) => {
+  const server = new Server()
+  t.teardown(() => server.destroy())
+
+  const state = await new Promise((resolve) => {
+    server.on('stateChange', resolve)
+  })
+
+  if (state !== 'on') {
+    t.comment('bluetooth not on: ' + state + ', skipping')
+    return
+  }
+
+  server.open()
+  server.close()
+
+  const characteristic = new Characteristic(CHAR_UUID, { read: true })
+  const service = new Service(SERVICE_UUID, [characteristic])
+
+  t.exception(() => server.addService(service), /GATT server unavailable/)
+})
+
+test('open twice throws', { skip: isCI }, async (t) => {
+  const server = new Server()
+  t.teardown(() => server.destroy())
+
+  const state = await new Promise((resolve) => {
+    server.on('stateChange', resolve)
+  })
+
+  if (state !== 'on') {
+    t.comment('bluetooth not on: ' + state + ', skipping')
+    return
+  }
+
+  server.open()
+
+  t.exception(() => server.open(), /GATT server already open/)
+})
+
+test('close without open is a no-op', { skip: isCI }, (t) => {
+  const server = new Server()
+  t.teardown(() => server.destroy())
+
+  t.execution(() => server.close())
+})
+
+test('reopen after close works', { skip: isCI }, async (t) => {
+  const server = new Server()
+  t.teardown(() => server.destroy())
+
+  const state = await new Promise((resolve) => {
+    server.on('stateChange', resolve)
+  })
+
+  if (state !== 'on') {
+    t.comment('bluetooth not on: ' + state + ', skipping')
+    return
+  }
+
+  server.open()
+  server.close()
+  server.open()
+
+  const characteristic = new Characteristic(CHAR_UUID, { read: true })
+  const service = new Service(SERVICE_UUID, [characteristic])
+
+  server.addService(service)
+
+  const [uuid, error] = await new Promise((resolve) => {
+    server.on('serviceAdd', (uuid, error) => {
+      resolve([uuid, error])
+    })
+  })
+
+  t.absent(error, 'no error adding service after reopen')
+  t.is(uuid, SERVICE_UUID.toLowerCase(), 'service uuid matches')
 })

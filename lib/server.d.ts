@@ -61,7 +61,7 @@ export interface ServerEventMap extends EventMap {
 }
 
 declare class Server extends EventEmitter<ServerEventMap> {
-  /** Create a new BLE peripheral server for advertising services and handling client requests. */
+  /** Create a new BLE peripheral server. Call `open()` once `state` is `'on'` before using it. */
   constructor()
 
   /**
@@ -69,6 +69,14 @@ declare class Server extends EventEmitter<ServerEventMap> {
    */
   readonly state: BluetoothState
 
+  /**
+   * Open the GATT server. Throws unless `state` is `'on'`, and the handle does not
+   * survive the adapter going off, so reopen on every transition back to `'on'`.
+   * Services do not survive a reopen and have to be added again.
+   */
+  open(): void
+  /** Close the GATT server, dropping its services. A no-op if it is not open. */
+  close(): void
   /**
    * @param service - The `Service` to register with the GATT server.
    */
