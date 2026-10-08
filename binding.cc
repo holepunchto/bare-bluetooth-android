@@ -1015,17 +1015,9 @@ bare_bluetooth_android_l2cap_write(
   auto write_method = output.get_class().get_method<void(java_array_t<unsigned char>)>("write");
   write_method(output, byte_array);
 
-  bool write_ok = !bare_bluetooth_android_check_exception(jenv);
+  js_call_threadsafe_function(channel->tsfn_drain);
 
-  if (write_ok) {
-    js_call_threadsafe_function(channel->tsfn_drain);
-  } else {
-    auto *event = new bare_bluetooth_android_channel_error_t();
-    event->message = std::string("Write error");
-    js_call_threadsafe_function(channel->tsfn_error, event);
-  }
-
-  return write_ok ? static_cast<int32_t>(data.size()) : 0;
+  return static_cast<int32_t>(data.size());
 }
 
 static void
