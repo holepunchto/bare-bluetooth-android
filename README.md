@@ -44,24 +44,32 @@ Failures arrive three ways:
 
 ## Testing on device
 
-The tests drive a real radio, so they only run on a phone. [`test/test-app/`](test/test-app) is a minimal Android app that boots a Bare worklet running `test.js` and prints the TAP output on screen.
+The tests drive a real radio, so they only run on a phone. Plug in an arm64 device with USB debugging on.
+
+Build the addon for the device, which needs an Android NDK:
 
 ```console
-sh test/test-app/setup.sh
-sh test/test-app/test.sh
+bare-make generate --platform android --arch arm64 -D ANDROID_STL=c++_static
+bare-make build
+bare-make install
 ```
 
-[`setup.sh`](test/test-app/setup.sh) downloads the latest Bare Kit prebuild and compiles the addon for `android-arm64`; it needs the [GitHub CLI](https://cli.github.com) and an Android NDK. Re-run it after touching `binding.cc`.
+Then run the tests:
 
-[`test.sh`](test/test-app/test.sh) builds the APK, installs it, launches it and follows the TAP output. Plug in an arm64 device with USB debugging on, and grant the Bluetooth permissions on first launch.
+```console
+npm run test:device
+```
+
+`test:device` hands `test.js` to [`bare-native-test`](https://github.com/holepunchto/bare-native-test), which builds it into an app, installs it with the Bluetooth permissions already granted, launches it and streams the TAP output. [`test/AndroidManifest.xml`](test/AndroidManifest.xml) is the template that declares those permissions.
 
 ### The state suite
 
 ```console
-sh test/test-app/test.sh state
+sh test/state.sh &
+npx bare-native-test --platform android --runtime bare-ndk/runtime --android-manifest test/AndroidManifest.xml test-state.js
 ```
 
-Adds `test/state.js`, and starts `test/test-app/state.sh` in the background to toggle the radio.
+`test-state.js` adds `test/state.js`, and [`state.sh`](test/state.sh) toggles the radio for it to observe.
 
 ## API
 
