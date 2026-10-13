@@ -43,18 +43,8 @@ tasks.register("link", Exec) {
   commandLine([
     "node_modules/.bin/bare-link",
     "--host", "android-arm64",
-    "--out", "test/test-app/app/src/main/addons"
-  ])
-}
-
-tasks.register("linkTest", Exec) {
-  workingDir repo
-
-  commandLine([
-    "node_modules/.bin/bare-link",
-    "--host", "android-arm64",
     "--out", "test/test-app/app/src/main/addons",
-    "node_modules/brittle"
+    "test/test-app/test.js"
   ])
 }
 
@@ -71,7 +61,7 @@ tasks.register("pack", Exec) {
   ])
 }
 
-preBuild.dependsOn link, linkTest, pack
+preBuild.dependsOn link, pack
 
 dependencies {
   api fileTree(dir: "libs", include: ["bare-kit/classes.jar"])
