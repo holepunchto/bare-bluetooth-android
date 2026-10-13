@@ -355,3 +355,14 @@ test('reopen after close works', { skip: isCI }, async (t) => {
   t.absent(error, 'no error adding service after reopen')
   t.is(uuid, SERVICE_UUID.toLowerCase(), 'service uuid matches')
 })
+
+test('server without an adapter throws', { skip: isCI }, (t) => {
+  try {
+    new Server().destroy()
+  } catch (err) {
+    t.is(err.code, 'ADAPTER_UNAVAILABLE')
+    return
+  }
+
+  t.comment('bluetooth adapter present, skipping')
+})
