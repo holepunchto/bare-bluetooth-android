@@ -394,3 +394,14 @@ test('scan with the radio off throws', { skip: isCI }, async (t) => {
 
   t.exception(() => central.startScan(), /scanner unavailable/)
 })
+
+test('central without an adapter throws', { skip: isCI }, (t) => {
+  try {
+    new Central().destroy()
+  } catch (err) {
+    t.is(err.code, 'ADAPTER_UNAVAILABLE')
+    return
+  }
+
+  t.comment('bluetooth adapter present, skipping')
+})

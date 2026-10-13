@@ -201,8 +201,8 @@ bare_bluetooth_android_has_exception(JNIEnv *env) {
 }
 
 [[noreturn]] static inline void
-bare_bluetooth_android_throw_error(js_env_t *env, const char *message) {
-  int err = js_throw_error(env, nullptr, message);
+bare_bluetooth_android_throw_error(js_env_t *env, const char *message, const char *code = nullptr) {
+  int err = js_throw_error(env, code, message);
   assert(err == 0);
 
   throw static_cast<int>(js_pending_exception);
@@ -1425,6 +1425,12 @@ bare_bluetooth_android_central_init(
   auto bt_manager = j_bluetooth_manager_t(jenv, manager_obj);
   auto get_adapter = bt_manager.get_class().get_method<j_bluetooth_adapter_t()>("getAdapter");
   auto adapter_local = get_adapter(bt_manager);
+
+  if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
+
+  if (static_cast<jobject>(adapter_local) == nullptr) {
+    bare_bluetooth_android_throw_error(env, "Bluetooth adapter unavailable", "ADAPTER_UNAVAILABLE");
+  }
 
   central->adapter = java_global_ref_t<j_bluetooth_adapter_t>(jenv, adapter_local);
 
@@ -3909,6 +3915,13 @@ bare_bluetooth_android_server_init(
 
   auto get_adapter = bt_manager.get_class().get_method<j_bluetooth_adapter_t()>("getAdapter");
   auto adapter = get_adapter(bt_manager);
+
+  if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
+
+  if (static_cast<jobject>(adapter) == nullptr) {
+    bare_bluetooth_android_throw_error(env, "Bluetooth adapter unavailable", "ADAPTER_UNAVAILABLE");
+  }
+
   server->adapter = java_global_ref_t<j_bluetooth_adapter_t>(jenv, adapter);
 
   // Registered before the snapshot below, so no transition can fall between them.

@@ -15,6 +15,8 @@ export default class BluetoothError extends Error {
    */
   id?: string
 
+  /** Thrown by the `Central` and `Server` constructors on a device with no Bluetooth adapter. */
+  static ADAPTER_UNAVAILABLE(msg: string): BluetoothError
   static ADVERTISE_FAILED(msg: string): BluetoothError
   static SCAN_FAILED(msg: string): BluetoothError
   /**

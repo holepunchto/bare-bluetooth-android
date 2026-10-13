@@ -1,3 +1,4 @@
+exports.BluetoothError = require('./lib/errors')
 exports.Central = require('./lib/central')
 exports.Peripheral = require('./lib/peripheral')
 exports.Server = require('./lib/server')
