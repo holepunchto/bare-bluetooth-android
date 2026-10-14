@@ -12,7 +12,10 @@ export default class Characteristic {
   readonly properties: number
   /** The permission flags of the characteristic, or `null` if inferred. */
   readonly permissions: number | null
-  /** The current value of the characteristic, or `null`. */
+  /**
+   * The current value of the characteristic, or `null`. Assigning throws on a
+   * discovered characteristic.
+   */
   value: Uint8Array | null
 
   static readonly PROPERTY_READ: number
