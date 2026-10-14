@@ -219,20 +219,6 @@ bare_bluetooth_android_throw(js_env_t *env, JNIEnv *jenv) {
   bare_bluetooth_android_throw_error(env, to_string(error).c_str());
 }
 
-[[noreturn]] static inline void
-bare_bluetooth_android_throw_unregistering(js_env_t *env, JNIEnv *jenv, java_global_ref_t<j_hp_state_receiver_t> &receiver) {
-  auto error = j_throwable_t(jenv, jenv->ExceptionOccurred());
-
-  jenv->ExceptionClear();
-
-  auto message = error.get_class().get_method<std::string()>("toString")(error);
-
-  bare_bluetooth_android_unregister_state_receiver(jenv, receiver);
-  bare_bluetooth_android_check_exception(jenv);
-
-  bare_bluetooth_android_throw_error(env, message.c_str());
-}
-
 struct bare_bluetooth_android_peripheral_t;
 
 static std::unordered_map<uint64_t, bare_bluetooth_android_peripheral_t *> bare_bluetooth_android_peripherals;
@@ -3853,6 +3839,25 @@ bare_bluetooth_android_find_server(uint64_t id) {
   return it == bare_bluetooth_android_servers.end() ? nullptr : it->second;
 }
 
+[[noreturn]] static void
+bare_bluetooth_android_server_init_fail(js_env_t *env, JNIEnv *jenv, bare_bluetooth_android_server_t *server) {
+  auto error = j_throwable_t(jenv, jenv->ExceptionOccurred());
+
+  jenv->ExceptionClear();
+
+  auto message = error.get_class().get_method<std::string()>("toString")(error);
+
+  {
+    std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
+    bare_bluetooth_android_servers.erase(server->id);
+  }
+
+  bare_bluetooth_android_server_release(server);
+  bare_bluetooth_android_server_unref(server);
+
+  bare_bluetooth_android_throw_error(env, message.c_str());
+}
+
 static js_external_t<bare_bluetooth_android_server_t>
 bare_bluetooth_android_server_init(
   js_env_t *env,
@@ -3871,12 +3876,29 @@ bare_bluetooth_android_server_init(
 ) {
   int err;
 
+  auto jenv = bare_bluetooth_android_jvm().get_env().value();
+
+  auto activity = bare_bluetooth_android_get_context(jenv);
+  auto get_system_service = activity.get_class().get_method<j_object_t(std::string)>("getSystemService");
+  auto manager_obj = get_system_service(activity, std::string("bluetooth"));
+  auto bt_manager = j_bluetooth_manager_t(jenv, manager_obj);
+
+  auto get_adapter = bt_manager.get_class().get_method<j_bluetooth_adapter_t()>("getAdapter");
+  auto adapter = get_adapter(bt_manager);
+
+  if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
+
+  if (static_cast<jobject>(adapter) == nullptr) {
+    bare_bluetooth_android_throw_error(env, "Bluetooth adapter unavailable", "ADAPTER_UNAVAILABLE");
+  }
+
   auto *server = new bare_bluetooth_android_server_t();
   server->env = env;
   server->destroyed = false;
   server->exiting = false;
   server->refs = 1;
   server->reported_state = -1;
+  server->adapter = java_global_ref_t<j_bluetooth_adapter_t>(jenv, adapter);
 
   {
     std::lock_guard<std::mutex> lock(bare_bluetooth_android_servers_mutex);
@@ -3929,28 +3951,12 @@ bare_bluetooth_android_server_init(
     assert(err == 0);
   }
 
-  auto jenv = bare_bluetooth_android_jvm().get_env().value();
-
-  auto activity = bare_bluetooth_android_get_context(jenv);
-  auto get_system_service = activity.get_class().get_method<j_object_t(std::string)>("getSystemService");
-  auto manager_obj = get_system_service(activity, std::string("bluetooth"));
-  auto bt_manager = j_bluetooth_manager_t(jenv, manager_obj);
-
-  auto get_adapter = bt_manager.get_class().get_method<j_bluetooth_adapter_t()>("getAdapter");
-  auto adapter = get_adapter(bt_manager);
-
-  if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
-
-  if (static_cast<jobject>(adapter) == nullptr) {
-    bare_bluetooth_android_throw_error(env, "Bluetooth adapter unavailable", "ADAPTER_UNAVAILABLE");
-  }
-
-  server->adapter = java_global_ref_t<j_bluetooth_adapter_t>(jenv, adapter);
-
   // Registered before the snapshot below, so no transition can fall between them.
   server->state_receiver = bare_bluetooth_android_register_state_receiver(jenv, server->id, true);
 
-  if (bare_bluetooth_android_has_exception(jenv)) bare_bluetooth_android_throw(env, jenv);
+  if (bare_bluetooth_android_has_exception(jenv)) {
+    bare_bluetooth_android_server_init_fail(env, jenv, server);
+  }
 
   auto get_state = adapter.get_class().get_method<int()>("getState");
 
@@ -3965,7 +3971,7 @@ bare_bluetooth_android_server_init(
   }
 
   if (bare_bluetooth_android_has_exception(jenv)) {
-    bare_bluetooth_android_throw_unregistering(env, jenv, server->state_receiver);
+    bare_bluetooth_android_server_init_fail(env, jenv, server);
   }
 
   err = js_add_deferred_teardown_callback(env, bare_bluetooth_android_server__on_teardown, (void *) server, &server->teardown);
