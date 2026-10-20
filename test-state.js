@@ -1,2 +1,2 @@
-require('./test.js')
 require('./test/state')
+require('./test/exit')

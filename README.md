@@ -42,34 +42,29 @@ Failures arrive three ways:
 - **Emitted** - the call went through and the operation failed later. The `error` event carries a `BluetoothError` with a `code` such as `SCAN_FAILED` or `CONNECTION_FAILED`.
 - **Streamed** - an `L2CAPChannel` is a `Duplex`, so a failed write does not throw from the write itself. It destroys the stream with the Java exception, for example `java.io.IOException: Broken pipe` once the peer is gone. Listen for `error` on the channel; an unhandled one still throws.
 
-## Testing on device
+## Running the tests
 
-The tests drive a real radio, so they only run on a phone. Plug in an arm64 device with USB debugging on.
-
-Build the addon for the device, which needs an Android NDK:
+The tests drive a real radio, so they only run on a phone. Build the addon for it, which needs an Android NDK:
 
 ```console
-bare-make generate --platform android --arch arm64 -D ANDROID_STL=c++_static
+bare-make generate --platform android --arch arm64 -D ANDROID_PLATFORM=android-34 -D ANDROID_STL=c++_static
 bare-make build
 bare-make install
 ```
 
-Then run the tests:
+Plug in an arm64 phone with USB debugging on and run:
 
 ```console
-npm run test:device
+npm test
 ```
 
-`test:device` hands `test.js` to [`bare-native-test`](https://github.com/holepunchto/bare-native-test), which builds it into an app, installs it with the Bluetooth permissions already granted, launches it and streams the TAP output. [`test/AndroidManifest.xml`](test/AndroidManifest.xml) is the template that declares those permissions.
+The app is installed with the Bluetooth permissions already granted, so nothing waits on a prompt.
 
-### The state suite
+The state suite watches the radio go off and on, so it runs on its own, with [`test/toggle-radio.sh`](test/toggle-radio.sh) toggling the radio:
 
 ```console
-sh test/state.sh &
-npx bare-native-test --platform android --runtime bare-ndk/runtime --android-manifest test/AndroidManifest.xml test-state.js
+npm run test:state
 ```
-
-`test-state.js` adds `test/state.js`, and [`state.sh`](test/state.sh) toggles the radio for it to observe.
 
 ## API
 
