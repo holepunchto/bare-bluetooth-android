@@ -53,7 +53,7 @@ test('stateChange follows the radio off and on', { skip: isCI, timeout: WINDOW *
   const [fromCentral, fromServer] = await Promise.all([observe(central), observe(server)])
 
   if (fromCentral.indexOf('off') === -1 && fromServer.indexOf('off') === -1) {
-    t.comment('no toggle observed, skipping - run: sh test/test-app/test.sh state')
+    t.comment('no toggle observed, skipping')
     return
   }
 

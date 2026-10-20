@@ -6,8 +6,7 @@
   "scripts": {
     "format": "prettier --write . && lunte --fix",
     "lint": "prettier --check . && lunte",
-    "test": "bare-native-test --platform android --runtime bare-ndk/runtime --android-manifest test/AndroidManifest.xml --defer bare-cov test.js",
-    "test:state": "sh test/toggle-radio.sh & bare-native-test --platform android --runtime bare-ndk/runtime --android-manifest test/AndroidManifest.xml --defer bare-cov test-state.js"
+    "test": "sh test/toggle-radio.sh & bare-native-test --platform android --runtime bare-ndk/runtime --android-manifest test/AndroidManifest.xml --defer bare-cov test.js"
   },
   "exports": {
     "./package": "./package.json",
