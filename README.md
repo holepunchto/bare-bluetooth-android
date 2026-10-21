@@ -42,26 +42,23 @@ Failures arrive three ways:
 - **Emitted** - the call went through and the operation failed later. The `error` event carries a `BluetoothError` with a `code` such as `SCAN_FAILED` or `CONNECTION_FAILED`.
 - **Streamed** - an `L2CAPChannel` is a `Duplex`, so a failed write does not throw from the write itself. It destroys the stream with the Java exception, for example `java.io.IOException: Broken pipe` once the peer is gone. Listen for `error` on the channel; an unhandled one still throws.
 
-## Testing on device
+## Running the tests
 
-The tests drive a real radio, so they only run on a phone. [`test/test-app/`](test/test-app) is a minimal Android app that boots a Bare worklet running `test.js` and prints the TAP output on screen.
-
-```console
-sh test/test-app/setup.sh
-sh test/test-app/test.sh
-```
-
-[`setup.sh`](test/test-app/setup.sh) downloads the latest Bare Kit prebuild and compiles the addon for `android-arm64`; it needs the [GitHub CLI](https://cli.github.com) and an Android NDK. Re-run it after touching `binding.cc`.
-
-[`test.sh`](test/test-app/test.sh) builds the APK, installs it, launches it and follows the TAP output. Plug in an arm64 device with USB debugging on, and grant the Bluetooth permissions on first launch.
-
-### The state suite
+The tests drive a real radio, so they only run on a phone. Build the addon for it, which needs an Android NDK:
 
 ```console
-sh test/test-app/test.sh state
+bare-make generate --platform android --arch arm64 -D ANDROID_PLATFORM=android-34 -D ANDROID_STL=c++_static
+bare-make build
+bare-make install
 ```
 
-Adds `test/state.js`, and starts `test/test-app/state.sh` in the background to toggle the radio.
+Plug in an arm64 phone with USB debugging on and run:
+
+```console
+npm test
+```
+
+The app is installed with the Bluetooth permissions already granted, so nothing waits on a prompt. [`test/before.js`](test/before.js) takes the radio off and on from this machine when the state suite asks for it, and [`test/after.js`](test/after.js) leaves it on.
 
 ## API
 

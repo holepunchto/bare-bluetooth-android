@@ -6,7 +6,7 @@
   "scripts": {
     "format": "prettier --write . && lunte --fix",
     "lint": "prettier --check . && lunte",
-    "test": "brittle-bare --coverage test.js"
+    "test": "bare-native-test --platform android --runtime bare-ndk/runtime --android-manifest test/AndroidManifest.xml --defer bare-cov --before test/before.js --after test/after.js test.js"
   },
   "exports": {
     "./package": "./package.json",
@@ -39,14 +39,13 @@
     "bare-stream": "^2.11.0"
   },
   "devDependencies": {
-    "bare-link": "^4.0.0",
+    "bare-native-test": "^0.1.5",
+    "bare-ndk": "^0.3.4",
     "bare-os": "^3.8.0",
-    "bare-pack": "^2.2.2",
     "brittle": "^3.19.1",
     "cmake-android": "^0.1.2",
-    "cmake-bare": "^1.6.5",
+    "cmake-bare": "^1.10.2",
     "cmake-fetch": "^1.4.0",
-    "framed-stream": "^1.0.1",
     "lunte": "^1.6.0",
     "prettier": "^3.8.1",
     "prettier-config-holepunch": "^2.0.0"
