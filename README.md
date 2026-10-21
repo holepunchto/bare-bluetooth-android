@@ -58,7 +58,7 @@ Plug in an arm64 phone with USB debugging on and run:
 npm test
 ```
 
-The app is installed with the Bluetooth permissions already granted, so nothing waits on a prompt. [`test/toggle-radio.sh`](test/toggle-radio.sh) runs alongside and takes the radio off and on when the state suite asks for it.
+The app is installed with the Bluetooth permissions already granted, so nothing waits on a prompt. [`test/before.js`](test/before.js) takes the radio off and on from this machine when the state suite asks for it, and [`test/after.js`](test/after.js) leaves it on.
 
 ## API
 
