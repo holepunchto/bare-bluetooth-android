@@ -53,6 +53,8 @@ test('connect and discover services', { skip: isCI }, async (t) => {
   })
 
   t.ok(typeof peripheral.id === 'string', 'peripheral id is string')
+  t.comment('name is ' + peripheral.name)
+  t.ok(peripheral.name === null || typeof peripheral.name === 'string', 'name is string or null')
   t.is(peripheral.serviceData, discovered.serviceData, 'peripheral keeps discovered serviceData')
 
   peripheral.discoverServices()
@@ -131,6 +133,13 @@ test('peripheral from a device has no advertisement', (t) => {
   t.is(peripheral.scanResult, null)
   t.is(peripheral.rssi, null)
   t.is(peripheral.serviceData, null)
+})
+
+test('peripheral from a nameless device has no name before connecting', (t) => {
+  const device = new Device({ address: 'AA:BB:CC:DD:EE:FF' })
+  const peripheral = new Peripheral({ device })
+
+  t.is(peripheral.name, null)
 })
 
 test('peripheral without a device or a scan result throws', (t) => {

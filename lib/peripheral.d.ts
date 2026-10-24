@@ -47,7 +47,10 @@ export default class Peripheral extends EventEmitter<PeripheralEventMap> {
   readonly scanResult: ScanResult | null
   /** The unique identifier of the peripheral, equal to the device address. */
   readonly id: string
-  /** The name of the peripheral, or `null` if unavailable. */
+  /**
+   * The advertised name, or the device's own name once connected. `null` while neither is
+   * available yet.
+   */
   readonly name: string | null
   /** The signal strength of the most recent advertisement, or `null` without a scan. */
   readonly rssi: number | null
