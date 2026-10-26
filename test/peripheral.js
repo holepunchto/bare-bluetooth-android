@@ -142,6 +142,20 @@ test('peripheral from a nameless device has no name before connecting', (t) => {
   t.is(peripheral.name, null)
 })
 
+test('peripheral methods throw while it is not connected', (t) => {
+  const device = new Device({ address: 'AA:BB:CC:DD:EE:FF' })
+  const peripheral = new Peripheral({ device })
+
+  t.exception(() => peripheral.discoverServices(), /NOT_CONNECTED/)
+  t.exception(() => peripheral.discoverCharacteristics({}), /NOT_CONNECTED/)
+  t.exception(() => peripheral.read({}), /NOT_CONNECTED/)
+  t.exception(() => peripheral.write({}, new Uint8Array([1])), /NOT_CONNECTED/)
+  t.exception(() => peripheral.subscribe({}), /NOT_CONNECTED/)
+  t.exception(() => peripheral.unsubscribe({}), /NOT_CONNECTED/)
+  t.exception(() => peripheral.openL2CAPChannel(0x80), /NOT_CONNECTED/)
+  t.exception(() => peripheral.requestMtu(185), /NOT_CONNECTED/)
+})
+
 test('peripheral without a device or a scan result throws', (t) => {
   t.exception(() => new Peripheral(), /needs a device/)
   t.exception(() => new Peripheral({}), /needs a device/)
