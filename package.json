@@ -21,6 +21,7 @@
     "binding.cc",
     "binding.js",
     "CMakeLists.txt",
+    "bare-bluetooth-android.pro",
     "lib",
     "prebuilds"
   ],
@@ -43,7 +44,7 @@
     "bare-ndk": "^0.3.4",
     "bare-os": "^3.8.0",
     "brittle": "^3.19.1",
-    "cmake-android": "^0.1.2",
+    "cmake-android": "^0.1.8",
     "cmake-bare": "^1.10.2",
     "cmake-fetch": "^1.4.0",
     "lunte": "^1.6.0",

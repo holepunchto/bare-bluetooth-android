@@ -38,6 +38,7 @@ set(CMAKE_JAVA_COMPILE_FLAGS --release 17)
 
 add_dex(
   bare_bluetooth_classes
+  OUTPUT_NAME classes
   SOURCES
     lib/ScanCallback.java
     lib/ScanHelper.java
@@ -54,6 +55,8 @@ add_dex(
     lib/StateReceiver.java
   INCLUDE_JARS
     ${android_jar}
+  PROGUARD_RULES
+    bare-bluetooth-android.pro
 )
 
 bare_target(target)
