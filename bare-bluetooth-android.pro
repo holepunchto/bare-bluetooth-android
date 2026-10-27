@@ -1,0 +1,1 @@
+-keep class to.holepunch.bare.bluetooth.** { *; }
