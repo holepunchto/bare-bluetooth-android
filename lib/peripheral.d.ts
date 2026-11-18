@@ -65,6 +65,11 @@ export default class Peripheral extends EventEmitter<PeripheralEventMap> {
    * service data.
    */
   readonly serviceData: ServiceData | null
+  /**
+   * The advertised service UUIDs, empty when the advertisement carried no scan record or no
+   * service UUIDs.
+   */
+  readonly serviceUUIDs: string[]
 
   /**
    * Discover services offered by the peripheral. Results are emitted via the `'servicesDiscover'`

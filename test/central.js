@@ -230,6 +230,50 @@ test('scan discovers peripherals with expected shape', { skip: isCI }, async (t)
     peripheral.serviceData === null || typeof peripheral.serviceData === 'object',
     'serviceData is object or null'
   )
+  t.ok(Array.isArray(peripheral.serviceUUIDs), 'serviceUUIDs is an array')
+})
+
+test('a discovered peripheral reports canonical service uuids', { skip: isCI }, async (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  const state = await new Promise((resolve) => {
+    central.on('stateChange', resolve)
+  })
+
+  if (state !== 'on') {
+    t.comment('bluetooth not on: ' + state + ', skipping')
+    return
+  }
+
+  central.startScan()
+
+  const peripheral = await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), 10000)
+
+    central.on('discover', (peripheral) => {
+      if (peripheral.serviceUUIDs.length === 0) return
+
+      clearTimeout(timer)
+      resolve(peripheral)
+    })
+  })
+
+  central.stopScan()
+
+  if (peripheral === null) {
+    t.comment('nothing advertising a service uuid in range, skipping')
+    return
+  }
+
+  t.comment('uuids: ' + peripheral.serviceUUIDs.join(', '))
+
+  t.ok(
+    peripheral.serviceUUIDs.every((uuid) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(uuid)
+    ),
+    'every advertised uuid is canonical'
+  )
 })
 
 test('bonded devices have expected shape', { skip: isCI }, async (t) => {
