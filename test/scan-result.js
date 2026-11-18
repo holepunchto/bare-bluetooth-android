@@ -29,6 +29,19 @@ test('scan record service data is null when absent', (t) => {
   t.is(record.serviceData, null)
 })
 
+test('scan record exposes service uuids', (t) => {
+  const serviceUUIDs = ['0000feaf-0000-1000-8000-00805f9b34fb']
+  const record = new ScanRecord({ serviceUUIDs })
+
+  t.is(record.serviceUUIDs, serviceUUIDs)
+})
+
+test('scan record service uuids are empty when absent', (t) => {
+  const record = new ScanRecord()
+
+  t.alike(record.serviceUUIDs, [])
+})
+
 test('scan result exposes device, rssi, and scan record', (t) => {
   const device = new Device({ address: 'AA:BB:CC:DD:EE:FF', name: 'sensor' })
   const record = new ScanRecord({ serviceData: null })

@@ -354,6 +354,7 @@ typedef struct {
 typedef struct {
   bool present;
   std::vector<bare_bluetooth_android_service_data_entry_t> service_data;
+  std::vector<std::string> service_uuids;
 } bare_bluetooth_android_scan_record_t;
 
 typedef struct {
@@ -1163,6 +1164,9 @@ bare_bluetooth_android_central__on_discover(
     err = js_set_property(env, record, "serviceData", service_data);
     assert(err == 0);
 
+    err = js_set_property(env, record, "serviceUUIDs", event->scan_record.service_uuids);
+    assert(err == 0);
+
     scan_record = js_handle_t(record);
   }
 
@@ -1788,6 +1792,19 @@ bare_bluetooth_android_on_scan_result(
         if (data.size() > 0) {
           event->scan_record.service_data.push_back({std::move(uuid), data.slice()});
         }
+      }
+    }
+
+    auto service_uuid_list = scan_record.get_class().get_method<j_list_t()>("getServiceUuids")(scan_record);
+
+    if (service_uuid_list != nullptr) {
+      auto list_size = service_uuid_list.get_class().get_method<int()>("size");
+      auto list_get = service_uuid_list.get_class().get_method<j_object_t(int)>("get");
+      int uuid_count = list_size(service_uuid_list);
+
+      for (int i = 0; i < uuid_count; i++) {
+        auto parcel_uuid = j_parcel_uuid_t(env, list_get(service_uuid_list, i));
+        event->scan_record.service_uuids.push_back(bare_bluetooth_android_get_uuid_string(env, parcel_uuid));
       }
     }
   }

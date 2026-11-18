@@ -3,7 +3,7 @@ const Central = require('../lib/central')
 const Peripheral = require('../lib/peripheral')
 const ScanResult = require('../lib/scan-result')
 const Device = require('../lib/device')
-const { isCI } = require('./helpers')
+const { isCI, waitForOn } = require('./helpers')
 
 test('central emits stateChange on init', { skip: isCI }, async (t) => {
   const central = new Central()
@@ -229,6 +229,43 @@ test('scan discovers peripherals with expected shape', { skip: isCI }, async (t)
   t.ok(
     peripheral.serviceData === null || typeof peripheral.serviceData === 'object',
     'serviceData is object or null'
+  )
+  t.ok(Array.isArray(peripheral.serviceUUIDs), 'serviceUUIDs is an array')
+})
+
+test('a discovered peripheral reports canonical service uuids', { skip: isCI }, async (t) => {
+  const central = new Central()
+  t.teardown(() => central.destroy())
+
+  if (!(await waitForOn(t, central))) return
+
+  central.startScan()
+
+  const peripheral = await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), 10000)
+
+    central.on('discover', (peripheral) => {
+      if (peripheral.serviceUUIDs.length === 0) return
+
+      clearTimeout(timer)
+      resolve(peripheral)
+    })
+  })
+
+  central.stopScan()
+
+  if (peripheral === null) {
+    t.comment('nothing advertising a service uuid in range, skipping')
+    return
+  }
+
+  t.comment('uuids: ' + peripheral.serviceUUIDs.join(', '))
+
+  t.ok(
+    peripheral.serviceUUIDs.every((uuid) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(uuid)
+    ),
+    'every advertised uuid is canonical'
   )
 })
 
