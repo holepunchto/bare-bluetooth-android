@@ -1,19 +1,12 @@
 const test = require('brittle')
 const Server = require('../lib/server')
-const { isCI } = require('./helpers')
+const { isCI, waitForOn } = require('./helpers')
 
 test('server publish L2CAP channel returns PSM', { skip: isCI }, async (t) => {
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 
@@ -36,14 +29,7 @@ test('server publish multiple L2CAP channels', { skip: isCI }, async (t) => {
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 
@@ -78,14 +64,7 @@ test('server publish encrypted L2CAP channel', { skip: isCI }, async (t) => {
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 

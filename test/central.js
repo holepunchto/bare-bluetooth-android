@@ -33,14 +33,7 @@ test('central tracks state property', { skip: isCI }, async (t) => {
 async function nearby(t, central) {
   central.on('error', () => {})
 
-  const state = await new Promise((resolve) => {
-    central.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return null
-  }
+  if (!(await waitForOn(t, central))) return null
 
   central.startScan()
 
@@ -190,14 +183,7 @@ test('scan discovers peripherals with expected shape', { skip: isCI }, async (t)
   const central = new Central()
   t.teardown(() => central.destroy())
 
-  const state = await new Promise((resolve) => {
-    central.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, central))) return
 
   central.startScan()
 
@@ -273,14 +259,7 @@ test('bonded devices have expected shape', { skip: isCI }, async (t) => {
   const central = new Central()
   t.teardown(() => central.destroy())
 
-  const state = await new Promise((resolve) => {
-    central.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, central))) return
 
   const devices = central.getBondedDevices()
 
@@ -327,14 +306,7 @@ test('scan deduplicates peripherals by id', { skip: isCI }, async (t) => {
   const central = new Central()
   t.teardown(() => central.destroy())
 
-  const state = await new Promise((resolve) => {
-    central.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on, skipping')
-    return
-  }
+  if (!(await waitForOn(t, central))) return
 
   central.startScan()
 
@@ -373,14 +345,7 @@ test('filtered scan with non-existent service UUID finds nothing', { skip: isCI 
   const central = new Central()
   t.teardown(() => central.destroy())
 
-  const state = await new Promise((resolve) => {
-    central.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on, skipping')
-    return
-  }
+  if (!(await waitForOn(t, central))) return
 
   central.startScan(['00000000-0000-0000-0000-000000000000'])
 
