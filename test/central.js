@@ -3,7 +3,7 @@ const Central = require('../lib/central')
 const Peripheral = require('../lib/peripheral')
 const ScanResult = require('../lib/scan-result')
 const Device = require('../lib/device')
-const { isCI } = require('./helpers')
+const { isCI, waitForOn } = require('./helpers')
 
 test('central emits stateChange on init', { skip: isCI }, async (t) => {
   const central = new Central()
@@ -237,14 +237,7 @@ test('a discovered peripheral reports canonical service uuids', { skip: isCI }, 
   const central = new Central()
   t.teardown(() => central.destroy())
 
-  const state = await new Promise((resolve) => {
-    central.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, central))) return
 
   central.startScan()
 
