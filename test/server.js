@@ -2,7 +2,7 @@ const test = require('brittle')
 const Server = require('../lib/server')
 const Service = require('../lib/service')
 const Characteristic = require('../lib/characteristic')
-const { isCI } = require('./helpers')
+const { isCI, waitForOn } = require('./helpers')
 
 const SERVICE_UUID = '12345678-1234-1234-1234-123456789ABC'
 const CHAR_UUID = '87654321-4321-4321-4321-CBA987654321'
@@ -59,14 +59,7 @@ test('server add service with static value', { skip: isCI }, async (t) => {
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 
@@ -93,14 +86,7 @@ test('server add service with dynamic characteristic', { skip: isCI }, async (t)
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 
@@ -130,14 +116,7 @@ test('server start and stop advertising', { skip: isCI }, async (t) => {
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 
@@ -167,14 +146,7 @@ test('server multiple characteristics in one service', { skip: isCI }, async (t)
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 
@@ -208,14 +180,7 @@ test('add service with a malformed service UUID throws', { skip: isCI }, async (
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 
@@ -229,14 +194,7 @@ test('add service with a malformed characteristic UUID throws', { skip: isCI }, 
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 
@@ -250,14 +208,7 @@ test('advertising with a malformed service UUID throws', { skip: isCI }, async (
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 
@@ -281,14 +232,7 @@ test('add service after close throws', { skip: isCI }, async (t) => {
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
   server.close()
@@ -303,14 +247,7 @@ test('open twice throws', { skip: isCI }, async (t) => {
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
 
@@ -328,14 +265,7 @@ test('reopen after close works', { skip: isCI }, async (t) => {
   const server = new Server()
   t.teardown(() => server.destroy())
 
-  const state = await new Promise((resolve) => {
-    server.on('stateChange', resolve)
-  })
-
-  if (state !== 'on') {
-    t.comment('bluetooth not on: ' + state + ', skipping')
-    return
-  }
+  if (!(await waitForOn(t, server))) return
 
   server.open()
   server.close()

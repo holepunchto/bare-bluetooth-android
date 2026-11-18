@@ -4,7 +4,7 @@ exports.isCI = !!os.getEnv('CI')
 
 exports.waitForOn = async function waitForOn(t, emitter) {
   const state = await new Promise((resolve) => {
-    emitter.on('stateChange', resolve)
+    emitter.once('stateChange', resolve)
   })
 
   if (state === 'on') return true

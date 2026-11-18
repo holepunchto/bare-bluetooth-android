@@ -1,7 +1,7 @@
 const test = require('brittle')
 const Central = require('../lib/central')
 const Server = require('../lib/server')
-const { isCI } = require('./helpers')
+const { isCI, waitForOn } = require('./helpers')
 
 // Lifecycle stress: hammer init/destroy paths under allocation pressure so GC
 // finalizers run interleaved with binding teardown. Reproduction harness for
@@ -20,19 +20,12 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function state(emitter) {
-  return new Promise((resolve) => emitter.once('stateChange', resolve))
-}
-
 test('stress: central init/destroy churn', { skip: isCI }, async (t) => {
   for (let i = 0; i < ROUNDS; i++) {
     const central = new Central()
     central.on('error', () => {})
 
-    const s = await state(central)
-
-    if (s !== 'on') {
-      t.comment('bluetooth not on: ' + s + ', skipping')
+    if (!(await waitForOn(t, central))) {
       central.destroy()
       return
     }
@@ -49,10 +42,7 @@ test('stress: server publish/unpublish churn', { skip: isCI }, async (t) => {
     const server = new Server()
     server.on('error', () => {})
 
-    const s = await state(server)
-
-    if (s !== 'on') {
-      t.comment('bluetooth not on: ' + s + ', skipping')
+    if (!(await waitForOn(t, server))) {
       server.destroy()
       return
     }
@@ -80,10 +70,7 @@ test(
     const central = new Central()
     central.on('error', () => {})
 
-    const s = await state(central)
-
-    if (s !== 'on') {
-      t.comment('bluetooth not on: ' + s + ', skipping')
+    if (!(await waitForOn(t, central))) {
       central.destroy()
       return
     }
