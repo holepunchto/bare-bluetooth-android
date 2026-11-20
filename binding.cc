@@ -622,7 +622,7 @@ bare_bluetooth_android_channel__on_data(
   auto *event = static_cast<bare_bluetooth_android_channel_data_t *>(data);
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (channel->exiting) {
+  if (env == nullptr || channel->exiting) {
     delete event;
     return;
   }
@@ -655,7 +655,7 @@ bare_bluetooth_android_channel__on_drain(
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (channel->exiting) return;
+  if (env == nullptr || channel->exiting) return;
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -683,7 +683,7 @@ bare_bluetooth_android_channel__on_end(
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (channel->exiting) return;
+  if (env == nullptr || channel->exiting) return;
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -712,7 +712,7 @@ bare_bluetooth_android_channel__on_error(
   auto *event = static_cast<bare_bluetooth_android_channel_error_t *>(data);
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (channel->exiting) {
+  if (env == nullptr || channel->exiting) {
     delete event;
     return;
   }
@@ -756,6 +756,8 @@ bare_bluetooth_android_channel__on_close(
   int err;
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
+
+  if (env == nullptr) return;
 
   if (!channel->exiting) {
     js_handle_scope_t *scope;
@@ -808,7 +810,7 @@ bare_bluetooth_android_channel__on_open(
 
   auto *channel = static_cast<bare_bluetooth_android_channel_t *>(context);
 
-  if (channel->exiting) return;
+  if (env == nullptr || channel->exiting) return;
 
   js_handle_scope_t *scope;
   err = js_open_handle_scope(env, &scope);
@@ -1075,7 +1077,7 @@ bare_bluetooth_android_central__on_state_change(
 
   bare_bluetooth_android_central_ref_t ref{central};
 
-  if (central->exiting) {
+  if (env == nullptr || central->exiting) {
     delete event;
     return;
   }
@@ -1111,7 +1113,7 @@ bare_bluetooth_android_central__on_discover(
 
   bare_bluetooth_android_central_ref_t ref{central};
 
-  if (central->exiting) {
+  if (env == nullptr || central->exiting) {
     delete event;
     return;
   }
@@ -1213,7 +1215,7 @@ bare_bluetooth_android_central__on_connect(
 
   bare_bluetooth_android_central_ref_t ref{central};
 
-  if (central->exiting) {
+  if (env == nullptr || central->exiting) {
     delete event;
     return;
   }
@@ -1251,7 +1253,7 @@ bare_bluetooth_android_central__on_disconnect(
 
   bare_bluetooth_android_central_ref_t ref{central};
 
-  if (central->exiting) {
+  if (env == nullptr || central->exiting) {
     delete event;
     return;
   }
@@ -1296,7 +1298,7 @@ bare_bluetooth_android_central__on_connect_fail(
 
   bare_bluetooth_android_central_ref_t ref{central};
 
-  if (central->exiting) {
+  if (env == nullptr || central->exiting) {
     delete event;
     return;
   }
@@ -1332,7 +1334,7 @@ bare_bluetooth_android_central__on_scan_fail(
 
   bare_bluetooth_android_central_ref_t ref{central};
 
-  if (central->exiting) {
+  if (env == nullptr || central->exiting) {
     delete event;
     return;
   }
@@ -1921,7 +1923,7 @@ bare_bluetooth_android_peripheral__on_services_discover(
   auto *event = static_cast<bare_bluetooth_android_peripheral_services_discover_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (env == nullptr || peripheral->exiting) {
     delete event;
     return;
   }
@@ -1999,7 +2001,7 @@ bare_bluetooth_android_peripheral__on_characteristics_discover(
   auto *event = static_cast<bare_bluetooth_android_peripheral_characteristics_discover_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (env == nullptr || peripheral->exiting) {
     delete event;
     return;
   }
@@ -2085,7 +2087,7 @@ bare_bluetooth_android_peripheral__on_read(
   auto *event = static_cast<bare_bluetooth_android_peripheral_read_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (env == nullptr || peripheral->exiting) {
     delete event;
     return;
   }
@@ -2157,7 +2159,7 @@ bare_bluetooth_android_peripheral__on_write(
   auto *event = static_cast<bare_bluetooth_android_peripheral_write_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (env == nullptr || peripheral->exiting) {
     delete event;
     return;
   }
@@ -2216,7 +2218,7 @@ bare_bluetooth_android_peripheral__on_notify(
   auto *event = static_cast<bare_bluetooth_android_peripheral_notify_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (env == nullptr || peripheral->exiting) {
     delete event;
     return;
   }
@@ -2274,7 +2276,7 @@ bare_bluetooth_android_peripheral__on_notify_state(
   auto *event = static_cast<bare_bluetooth_android_peripheral_notify_state_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (env == nullptr || peripheral->exiting) {
     delete event;
     return;
   }
@@ -2389,7 +2391,7 @@ bare_bluetooth_android_peripheral__on_mtu_changed(
   auto *event = static_cast<bare_bluetooth_android_peripheral_mtu_changed_t *>(data);
   auto *peripheral = static_cast<bare_bluetooth_android_peripheral_t *>(context);
 
-  if (peripheral->exiting) {
+  if (env == nullptr || peripheral->exiting) {
     delete event;
     return;
   }
@@ -2743,6 +2745,12 @@ bare_bluetooth_android_peripheral__on_l2cap_open_complete(
   bare_bluetooth_android_peripheral_l2cap_open_complete_t *data
 ) {
   auto *event = static_cast<bare_bluetooth_android_peripheral_l2cap_open_complete_t *>(data);
+
+  if (env == nullptr) {
+    delete event;
+    return;
+  }
+
   auto *req = event->req;
   auto *peripheral = req->peripheral;
   auto *channel = req->channel;
@@ -3319,7 +3327,7 @@ bare_bluetooth_android_server__on_state_change(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3355,7 +3363,7 @@ bare_bluetooth_android_server__on_add_service(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3415,7 +3423,7 @@ bare_bluetooth_android_server__on_read_request(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3458,7 +3466,7 @@ bare_bluetooth_android_server__on_write_request(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3514,7 +3522,7 @@ bare_bluetooth_android_server__on_subscribe(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3552,7 +3560,7 @@ bare_bluetooth_android_server__on_unsubscribe(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3590,7 +3598,7 @@ bare_bluetooth_android_server__on_advertise_error(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3626,7 +3634,7 @@ bare_bluetooth_android_server__on_notify_sent(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3662,7 +3670,7 @@ bare_bluetooth_android_server__on_channel_publish(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3707,7 +3715,7 @@ bare_bluetooth_android_server__on_channel_open(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3794,7 +3802,7 @@ bare_bluetooth_android_server__on_connection_state(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
@@ -3838,7 +3846,7 @@ bare_bluetooth_android_server__on_descriptor_response(
 
   bare_bluetooth_android_server_ref_t ref{server};
 
-  if (server->exiting) {
+  if (env == nullptr || server->exiting) {
     delete event;
     return;
   }
